@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>архив писем</title>
+  <script>
+    /* применяем сохранённую тему до отрисовки, чтобы не было мигания */
+    try {
+      if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = "dark";
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Сменить тему">
+    <!-- пиксельные иконки 13x13 -->
+    <svg class="moon" viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+      <path d="M4 1h2v1h-2zM3 2h2v1h-2zM2 3h3v1h-3zM1 4h4v1h-4zM1 5h4v1h-4zM1 6h5v1h-5zM1 7h5v1h-5zM1 8h7v1h-7zM2 9h9v1h-9zM3 10h7v1h-7zM4 11h5v1h-5z"/>
+    </svg>
+    <svg class="sun" viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+      <path d="M6 0h1v1h-1zM1 1h1v1h-1zM6 1h1v1h-1zM11 1h1v1h-1zM2 2h1v1h-1zM10 2h1v1h-1zM5 3h3v1h-3zM4 4h5v1h-5zM3 5h7v1h-7zM0 6h2v1h-2zM3 6h7v1h-7zM11 6h2v1h-2zM3 7h7v1h-7zM4 8h5v1h-5zM5 9h3v1h-3zM2 10h1v1h-1zM10 10h1v1h-1zM1 11h1v1h-1zM6 11h1v1h-1zM11 11h1v1h-1zM6 12h1v1h-1z"/>
+    </svg>
+  </button>
+
+  <main class="home" id="home">
+    <h1>архив писем</h1>
+
+    <ul class="letters">
+      <li><button class="link" data-letter="0">письмо 1</button></li>
+      <li><button class="link" data-letter="1">письмо 2</button></li>
+      <li><button class="link" data-letter="2">письмо 3</button></li>
+    </ul>
+
+    <p class="note">какой-то текст</p>
+  </main>
+
+  <div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-hidden="true">
+    <article class="sheet" id="sheet">
+      <button class="link back" id="back">← назад</button>
+      <h2 id="letter-title"></h2>
+      <p class="date" id="letter-date"></p>
+      <div class="body" id="letter-body"></div>
+    </article>
+  </div>
+
+  <script>
+    /* ---------- Письма: меняйте тексты здесь ---------- */
+    const letters = [
+      {
+        title: "письмо 1",
+        date: "1 января",
+        paragraphs: [
+          "<v>Здравствуй. Это текст первого письма.</v> Здесь может быть что угодно: воспоминание, новость, несколько строк на память.",
+          "Письма лежат в архиве тихо и ждут, пока их откроют. Каждое из них — <u>маленький кусочек времени</u>, который не хочется <i>терять</i>.",
+          "Пиши, когда будет настроение."
+        ],
+        sign: "— автор"
+      },
+      {
+        title: "письмо 2",
+        date: "15 февраля",
+        paragraphs: [
+          "Привет. Это второе письмо. Замените этот текст на свой, добавляйте или убирайте абзацы.",
+          "Чтобы добавить новое письмо, допишите объект в список letters в конце файла и ещё одну кнопку в главный список."
+        ],
+        sign: "— автор"
+      },
+      {
+        title: "письмо 3",
+        date: "66 февраля",
+        paragraphs: [
+          "Привет. Это второе письмо. Замените этот текст на свой, добавляйте или убирайте абзацы.",
+          "Чтобы добавить новое письмо, допишите объект в список letters в конце файла и ещё одну кнопку в главный список."
+        ],
+        sign: "— автор"
+      }
+    ];
+
+    /* ---------- Смена темы ---------- */
+    const themeBtn = document.getElementById("theme-toggle");
+    themeBtn.addEventListener("click", () => {
+      const root = document.documentElement;
+      const dark = root.dataset.theme !== "dark";
+      if (dark) root.dataset.theme = "dark"; else delete root.dataset.theme;
+      try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
+    });
+
+    const viewer = document.getElementById("viewer");
+    const titleEl = document.getElementById("letter-title");
+    const dateEl = document.getElementById("letter-date");
+    const bodyEl = document.getElementById("letter-body");
+    const backBtn = document.getElementById("back");
+    let lastTrigger = null;
+
+    /* ---------- Форматирование текста писем ----------
+       <v>текст</v> — выделение как мышкой
+       <u>текст</u> — подчёркивание
+       <i>текст</i> — курсив
+       <b>текст</b> — жирный
+       Теги можно вкладывать друг в друга. Разбор безопасный: никакого innerHTML. */
+    const RICH = {
+      v: ["span", "hl"],
+      u: ["u", ""],
+      i: ["em", ""],
+      b: ["strong", ""]
+    };
+
+    function renderRich(text, parent) {
+      const re = /<(v|u|i|b)>([\s\S]*?)<\/\1>/g;
+      let last = 0, m;
+      while ((m = re.exec(text))) {
+        if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const [tag, cls] = RICH[m[1]];
+        const el = document.createElement(tag);
+        if (cls) el.className = cls;
+        renderRich(m[2], el);
+        parent.appendChild(el);
+        last = re.lastIndex;
+      }
+      if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+    }
+
+    function openLetter(index, trigger) {
+      const l = letters[index];
+      if (!l) return;
+      lastTrigger = trigger || null;
+
+      titleEl.textContent = l.title;
+      dateEl.textContent = l.date;
+      bodyEl.textContent = "";
+      l.paragraphs.forEach(t => {
+        const p = document.createElement("p");
+        renderRich(t, p);
+        bodyEl.appendChild(p);
+      });
+      if (l.sign) {
+        const s = document.createElement("p");
+        s.className = "sign";
+        s.textContent = l.sign;
+        bodyEl.appendChild(s);
+      }
+
+      viewer.scrollTop = 0;
+      document.body.classList.add("reading");
+      viewer.setAttribute("aria-hidden", "false");
+      // два кадра, чтобы переход точно запустился
+      requestAnimationFrame(() => requestAnimationFrame(() => viewer.classList.add("open")));
+      setTimeout(() => backBtn.focus({ preventScroll: true }), 300);
+      history.pushState({ letter: index }, "");
+    }
+
+    function closeLetter(fromPopState) {
+      if (!viewer.classList.contains("open")) return;
+      viewer.classList.remove("open");
+      viewer.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("reading");
+      if (lastTrigger) lastTrigger.focus({ preventScroll: true });
+      if (!fromPopState && history.state && history.state.letter !== undefined) history.back();
+    }
+
+    document.querySelectorAll("[data-letter]").forEach(btn => {
+      btn.addEventListener("click", () => openLetter(Number(btn.dataset.letter), btn));
+    });
+    backBtn.addEventListener("click", () => closeLetter(false));
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeLetter(false); });
+    window.addEventListener("popstate", () => closeLetter(true));
+  </script>
+</body>
+</html>

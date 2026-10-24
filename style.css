@@ -1,0 +1,236 @@
+/* ---------- Шрифт ----------
+   Положите файл шрифта в папку fonts/ рядом с этим файлом
+   и назовите его font.woff2 (или font.woff / font.ttf / font.otf). */
+@font-face {
+  font-family: "ArchiveFont";
+  src: url("fonts/font.woff2") format("woff2"),
+       url("fonts/font.woff")  format("woff"),
+       url("fonts/font.ttf")   format("truetype"),
+       url("fonts/font.otf")   format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --ink: #111;
+  --paper: #fff;
+  --muted: #777;
+  --ease: cubic-bezier(.65, 0, .35, 1);
+  color-scheme: light;
+}
+
+/* Тёмная тема: чёрный фон, светлый текст */
+:root[data-theme="dark"] {
+  --ink: #f2f2f2;
+  --paper: #0a0a0a;
+  --muted: #8a8a8a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: "ArchiveFont", Georgia, "Times New Roman", serif;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .5s var(--ease), color .5s var(--ease);
+}
+
+/* ---------- Кнопка смены темы ---------- */
+.theme-toggle {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 20;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .5s var(--ease), opacity .3s;
+}
+.theme-toggle:hover { opacity: .6; }
+.theme-toggle:focus { outline: none; }
+.theme-toggle:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+
+.theme-toggle svg {
+  grid-area: 1 / 1;
+  width: 26px;   /* 13px сетка x 2 — пиксели получаются чёткими */
+  height: 26px;
+  fill: currentColor;
+  shape-rendering: crispEdges;
+  image-rendering: pixelated;
+  transition: opacity .3s steps(4);   /* ступенчатая смена, как у пиксельной графики */
+}
+/* светлая тема: виден месяц (нажать — станет темно) */
+.theme-toggle .sun  { opacity: 0; }
+.theme-toggle .moon { opacity: 1; }
+/* тёмная тема: виден солнечный значок (нажать — станет светло) */
+:root[data-theme="dark"] .theme-toggle .sun  { opacity: 1; }
+:root[data-theme="dark"] .theme-toggle .moon { opacity: 0; }
+
+/* Выделение текста мышью и пальцем запрещено */
+html, body, * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+::selection { background: transparent; }
+
+/* ---------- Главный экран ---------- */
+.home {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8vh clamp(24px, 8vw, 120px);
+  transition: opacity .6s var(--ease);
+}
+body.reading .home { opacity: 0; pointer-events: none; }
+
+h1 {
+  font-weight: normal;
+  font-size: clamp(32px, 6vw, 64px);
+  letter-spacing: .01em;
+  margin-bottom: clamp(32px, 6vh, 64px);
+}
+
+ul { list-style: none; }
+li + li { margin-top: .4em; }
+
+.note {
+  margin-top: clamp(48px, 10vh, 112px);
+  font-size: clamp(15px, 1.6vw, 18px);
+  color: var(--muted);
+  max-width: 34em;
+}
+
+/* ---------- Ссылки с линией при наведении ---------- */
+.link {
+  position: relative;
+  display: inline-block;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -.08em;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform .45s var(--ease);
+}
+.link:hover::after,
+.link:focus-visible::after,
+.link:active::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+.link:focus { outline: none; }
+
+.letters .link { font-size: clamp(22px, 3.2vw, 34px); }
+
+/* ---------- Просмотр письма ---------- */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: var(--paper);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  perspective: 1800px;
+  perspective-origin: 50% 0;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity .5s var(--ease), background-color .5s var(--ease), visibility 0s linear 1s;
+}
+.viewer.open {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity .4s var(--ease), background-color .5s var(--ease), visibility 0s;
+}
+
+.sheet {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: clamp(32px, 8vh, 96px) clamp(24px, 6vw, 48px) clamp(48px, 10vh, 120px);
+  transform-origin: 50% 0;
+  transform: rotateX(-90deg);
+  backface-visibility: hidden;
+  transition: transform .95s var(--ease);
+  will-change: transform;
+}
+.viewer.open .sheet { transform: rotateX(0deg); }
+
+.back { margin-bottom: clamp(32px, 6vh, 64px); font-size: 16px; color: var(--muted); }
+.back:hover, .back:focus-visible { color: var(--ink); }
+
+.sheet h2 {
+  font-weight: normal;
+  font-size: clamp(26px, 4.5vw, 40px);
+  margin-bottom: .25em;
+}
+.date {
+  color: var(--muted);
+  font-size: 15px;
+  margin-bottom: clamp(24px, 5vh, 48px);
+}
+.body p {
+  font-size: clamp(17px, 2vw, 20px);
+  line-height: 1.75;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+.body p + p { margin-top: 1.2em; }
+.body .sign { margin-top: 2em; text-align: left; }
+
+/* ---------- Форматирование внутри письма ---------- */
+/* <v>текст</v> — как будто выделено мышкой */
+.hl {
+  background: var(--ink);
+  color: var(--paper);
+  padding: .04em .2em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color .5s var(--ease), color .5s var(--ease);
+}
+/* <u>текст</u> — подчёркнуто */
+.body u {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .18em;
+}
+/* <i>текст</i> — курсив, <b>текст</b> — жирный */
+.body em { font-style: italic; }
+.body strong { font-weight: bold; }
+
+/* Уважение к настройке "уменьшить анимацию" */
+@media (prefers-reduced-motion: reduce) {
+  .sheet { transition: opacity .3s; transform: none; opacity: 0; }
+  .viewer.open .sheet { opacity: 1; }
+  .link::after { transition: none; }
+  .theme-toggle svg { transition: opacity .2s; }
+}
