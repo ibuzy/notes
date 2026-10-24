@@ -225,7 +225,7 @@ li + li { margin-top: .4em; }
 }
 
 .sheet {
-  max-width: 40rem;
+  max-width: 75rem;   /* на ПК письмо широкое, на телефоне занимает весь экран */
   margin: 0 auto;
   /* сверху запас, чтобы кнопка «назад» не залезала под шапку */
   padding: clamp(72px, 10vh, 112px) clamp(24px, 6vw, 48px) clamp(48px, 10vh, 120px);

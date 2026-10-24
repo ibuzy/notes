@@ -51,25 +51,33 @@
   </div>
 
   <script>
-    /* ---------- Письма: меняйте тексты здесь ---------- */
+    /* ---------- Письма: меняйте тексты здесь ----------
+       Текст пишется внутри обратных кавычек `...` так, как он должен выглядеть:
+         • пустая строка между кусками текста — новый абзац
+         • обычный перенос строки — разрыв строки внутри абзаца
+       Отступы в начале строк игнорируются, поэтому текст можно ровно выравнивать в коде. */
     const letters = [
       {
         title: "письмо 1",
         date: "1 января",
-        paragraphs: [
-          "<v>Здравствуй. Это текст первого письма.</v> Здесь может быть что угодно: воспоминание, новость, несколько строк на память.",
-          "Письма лежат в архиве тихо и ждут, пока их откроют. Каждое из них — <u>маленький кусочек времени</u>, который не хочется <i>терять</i>.",
-          "Пиши, когда будет настроение."
-        ],
+        text: `
+          <v>Здравствуй. Это текст первого письма.</v> Здесь может быть что угодно: воспоминание, новость, несколько строк на память.
+
+          Письма лежат в архиве тихо и ждут, пока их откроют. Каждое из них — <u>маленький кусочек времени</u>, который не хочется <i>терять</i>.
+
+          Пиши, когда будет настроение.
+          Или не пиши.
+        `,
         sign: "— автор"
       },
       {
         title: "письмо 2",
         date: "15 февраля",
-        paragraphs: [
-          "Привет. Это второе письмо. Замените этот текст на свой, добавляйте или убирайте абзацы.",
-          "Чтобы добавить новое письмо, допишите объект в список letters в конце файла и ещё одну кнопку в главный список."
-        ],
+        text: `
+          Привет. Это второе письмо. Замените этот текст на свой, добавляйте или убирайте абзацы пустой строкой.
+
+          Чтобы добавить новое письмо, допишите объект в список letters и ещё одну кнопку в главный список.
+        `,
         sign: "— автор"
       }
     ];
@@ -103,11 +111,30 @@
       b: ["strong", ""]
     };
 
+    /* добавляет текст; перенос строки превращается в <br> */
+    function addText(parent, str) {
+      str.split("\n").forEach((part, i) => {
+        if (i) parent.appendChild(document.createElement("br"));
+        if (part) parent.appendChild(document.createTextNode(part));
+      });
+    }
+
+    /* делит текст письма на абзацы по пустой строке */
+    function paragraphsOf(letter) {
+      if (typeof letter.text === "string") {
+        return letter.text
+          .split("\n").map(s => s.trim()).join("\n")   // убираем отступы строк
+          .trim()
+          .split(/\n{2,}/);                            // пустая строка = новый абзац
+      }
+      return letter.paragraphs || [];                  // старый формат: список абзацев
+    }
+
     function renderRich(text, parent) {
       const re = /<(v|u|i|b)>([\s\S]*?)<\/\1>/g;
       let last = 0, m;
       while ((m = re.exec(text))) {
-        if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+        if (m.index > last) addText(parent, text.slice(last, m.index));
         const [tag, cls] = RICH[m[1]];
         const el = document.createElement(tag);
         if (cls) el.className = cls;
@@ -115,7 +142,7 @@
         parent.appendChild(el);
         last = re.lastIndex;
       }
-      if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+      if (last < text.length) addText(parent, text.slice(last));
     }
 
     function openLetter(index, trigger) {
@@ -126,7 +153,7 @@
       titleEl.textContent = l.title;
       dateEl.textContent = l.date;
       bodyEl.textContent = "";
-      l.paragraphs.forEach(t => {
+      paragraphsOf(l).forEach(t => {
         const p = document.createElement("p");
         renderRich(t, p);
         bodyEl.appendChild(p);
