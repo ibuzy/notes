@@ -43,6 +43,59 @@ body {
   transition: background-color .5s var(--ease), color .5s var(--ease);
 }
 
+/* ---------- Шапка слева: аватарка + ibuzy projects ---------- */
+.brand {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  /* тот же левый отступ, что у основного текста (.home), чтобы всё стояло по одной линии */
+  left: max(clamp(24px, 8vw, 120px), env(safe-area-inset-left));
+  z-index: 20;
+  height: 44px;               /* та же высота, что у кнопки темы — они на одном уровне */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .5s var(--ease);
+}
+.brand:focus { outline: none; }
+.brand:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+
+.brand-pic {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+}
+
+.brand-text {
+  position: relative;
+  display: inline-block;
+}
+/* линия под текстом — та же анимация, что у писем */
+.brand-text::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -.15em;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform .45s var(--ease);
+}
+.brand:hover .brand-text::after,
+.brand:focus-visible .brand-text::after,
+.brand:active .brand-text::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
 /* ---------- Кнопка смены темы ---------- */
 .theme-toggle {
   position: fixed;
@@ -174,7 +227,8 @@ li + li { margin-top: .4em; }
 .sheet {
   max-width: 40rem;
   margin: 0 auto;
-  padding: clamp(32px, 8vh, 96px) clamp(24px, 6vw, 48px) clamp(48px, 10vh, 120px);
+  /* сверху запас, чтобы кнопка «назад» не залезала под шапку */
+  padding: clamp(72px, 10vh, 112px) clamp(24px, 6vw, 48px) clamp(48px, 10vh, 120px);
   transform-origin: 50% 0;
   transform: rotateX(-90deg);
   backface-visibility: hidden;
@@ -231,6 +285,6 @@ li + li { margin-top: .4em; }
 @media (prefers-reduced-motion: reduce) {
   .sheet { transition: opacity .3s; transform: none; opacity: 0; }
   .viewer.open .sheet { opacity: 1; }
-  .link::after { transition: none; }
+  .link::after, .brand-text::after { transition: none; }
   .theme-toggle svg { transition: opacity .2s; }
 }

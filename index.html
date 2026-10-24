@@ -14,6 +14,12 @@
 </head>
 <body>
 
+  <!-- слева сверху: аватарка + название, ведут в телеграм -->
+  <a class="brand" href="https://t.me/ibuzy" target="_blank" rel="noopener noreferrer" aria-label="ibuzy projects в Telegram">
+    <img class="brand-pic" src="pics/pic.jpg" alt="" width="30" height="30" draggable="false" onerror="this.style.display='none'">
+    <span class="brand-text">ibuzy projects</span>
+  </a>
+
   <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Сменить тему">
     <!-- пиксельные иконки 13x13 -->
     <svg class="moon" viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
@@ -30,7 +36,6 @@
     <ul class="letters">
       <li><button class="link" data-letter="0">письмо 1</button></li>
       <li><button class="link" data-letter="1">письмо 2</button></li>
-      <li><button class="link" data-letter="2">письмо 3</button></li>
     </ul>
 
     <p class="note">какой-то текст</p>
@@ -61,15 +66,6 @@
       {
         title: "письмо 2",
         date: "15 февраля",
-        paragraphs: [
-          "Привет. Это второе письмо. Замените этот текст на свой, добавляйте или убирайте абзацы.",
-          "Чтобы добавить новое письмо, допишите объект в список letters в конце файла и ещё одну кнопку в главный список."
-        ],
-        sign: "— автор"
-      },
-      {
-        title: "письмо 3",
-        date: "66 февраля",
         paragraphs: [
           "Привет. Это второе письмо. Замените этот текст на свой, добавляйте или убирайте абзацы.",
           "Чтобы добавить новое письмо, допишите объект в список letters в конце файла и ещё одну кнопку в главный список."
