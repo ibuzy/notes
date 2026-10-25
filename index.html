@@ -1,27 +1,86 @@
 <!DOCTYPE html>
+<!--
+  АРХИВ ЗАМЕТОК — краткое описание сайта
+
+  Файлы:  index.html (страница и скрипт), style.css (оформление), letters.enc (зашифрованные письма),
+          fonts/font.woff2 (шрифт), pics/pic.jpg (аватарка), sounds/click.mp3 (звук нажатия).
+
+  Как устроено:
+  • Вход по коду доступа. Письма лежат в letters.enc и расшифровываются прямо в браузере
+    (PBKDF2 + AES-GCM), в коде страницы их нет, после перезагрузки они пропадают из памяти.
+  • Запоминание входа: на экране входа под окном есть квадратик «запомнить меня на этом устройстве».
+    Без галочки ничего не сохраняется, и после перезагрузки код спросят снова. С галочкой в
+    localStorage (ключ "lk") кладётся ключ расшифровки, а не сам код и не письма: код тогда не
+    спрашивают, пока не нажата кнопка «выйти» (справа внизу, на телефоне тоже справа внизу; она стирает ключ). Сменили код или пересобрали letters.enc — ключ перестанет подходить,
+    и сайт снова попросит код.
+  • «что за проект?» — раскрывающееся окно с описанием: текст печатается, в нём есть оформление
+    и ссылка на открытый исходный код. Закрывается кнопкой, Esc или свайпом вниз.
+  • Письма: <v>выделение</v>, <u>подчёркивание</u>, <i>курсив</i>, <b>жирный</b>
+    и ссылки <a href="https://...">текст</a> (только http/https).
+  • Лицензия на шрифт (WebPlus IBM MDA, CC BY-SA 4.0): ссылка слева снизу на int10h.org/oldschool-pc-fonts,
+    при наведении плавно гаснет.
+  • Фон: летающие пиксели, настоящие созвездия (24 штуки), которые линиями прорисовываются на экране,
+    и маленькие пиксельные планеты Солнечной системы (все восемь): появляются в случайное время и в
+    случайном месте, не близко к другим планетам и созвездиям.
+  • Кнопки справа сверху (стопкой, на телефоне компактнее): тема, анимации и звук; после входа ещё
+    «выйти» (справа внизу). На телефоне тема, анимации, звук и «пустота» спрятаны в шестерёнку справа сверху.
+    По умолчанию тема тёмная, звук выключен; выбор запоминается в браузере.
+  • ЗВУК: при нажатии на любую кнопку проигрывается sounds/click.mp3 (mp3 понимают все браузеры,
+    включая iPhone). Играет через Web Audio (файл грузится один раз). Включается кнопкой-динамиком под кнопкой анимаций; пока она выключена — тишина.
+    Чтобы заменить звук, положите свой файл в папку sounds под тем же именем.
+-->
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>архив писем</title>
+  <title>архив заметок</title>
+  <link rel="icon" type="image/jpeg" href="pics/favicon.jpg">
+  <link rel="preload" href="fonts/font.woff2" as="font" type="font/woff2" crossorigin>
   <script>
-    /* применяем сохранённую тему до отрисовки, чтобы не было мигания */
+    /* применяем сохранённые тему и режим анимаций до отрисовки, чтобы не было мигания */
+    const d = document.documentElement;
+    d.classList.add("booting");
+    d.dataset.theme = "dark";                    // по умолчанию тёмная тема; «light» только если выбрана вручную
     try {
-      if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = "dark";
+      const m = localStorage.getItem("motion");
+      if (localStorage.getItem("theme") === "light") delete d.dataset.theme;
+      if (localStorage.getItem("sound") === "on") d.dataset.sound = "on";   // звук по умолчанию выключен
+      if (m === "off" || (!m && matchMedia("(prefers-reduced-motion: reduce)").matches)) d.dataset.motion = "off";
     } catch (e) {}
   </script>
+  <!-- экран загрузки: чёрный, с индикатором по центру; стили инлайном, чтобы он был виден раньше style.css -->
+  <style>
+    #boot { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: #000; color: #f2f2f2; transition: opacity .35s steps(4); }
+    #boot.hide { opacity: 0; pointer-events: none; }
+    #boot i { display: block; width: 32px; height: 4px; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px); animation: boot-load 1s steps(1) infinite; }
+    @keyframes boot-load { 0% { clip-path: inset(0 100% 0 0); } 25% { clip-path: inset(0 75% 0 0); } 50% { clip-path: inset(0 50% 0 0); } 75% { clip-path: inset(0 25% 0 0); } 100% { clip-path: inset(0 0 0 0); } }
+    /* пока идёт загрузка, анимации появления стоят на первом кадре и стартуют, когда экран загрузки уходит */
+    html.booting *, html.booting ::before, html.booting ::after { animation-play-state: paused !important; }
+    html.booting #boot i { animation-play-state: running !important; }
+    html.booting { overflow: hidden; }
+  </style>
+  <noscript><style>#boot { display: none; }</style></noscript>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- слева сверху: аватарка + название, ведут в телеграм -->
+  <div id="boot" role="status" aria-label="загрузка"><i></i></div>
+
+  <canvas id="px" aria-hidden="true"></canvas>
+
   <a class="brand" href="https://t.me/ibuzy" target="_blank" rel="noopener noreferrer" aria-label="ibuzy projects в Telegram">
-    <img class="brand-pic" src="pics/pic.jpg" alt="" width="30" height="30" draggable="false" onerror="this.style.display='none'">
+    <img class="brand-pic" src="pics/pic.jpg" alt="" width="30" height="30" draggable="false" decoding="async">
     <span class="brand-text">ibuzy projects</span>
   </a>
 
-  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Сменить тему">
-    <!-- пиксельные иконки 13x13 -->
+  <!-- шестерёнка (только на телефоне): раскрывает кнопки тема / анимации / звук / пустота, нажатие в любом другом месте сворачивает их обратно -->
+  <button class="gear-toggle" id="gear" type="button" aria-label="Меню" aria-expanded="false">
+    <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+      <path d="M5 1h3v1h-3zM2 2h2v1h-2zM5 2h3v1h-3zM9 2h2v1h-2zM2 3h9v1h-9zM3 4h7v1h-7zM1 5h4v1h-4zM8 5h4v1h-4zM1 6h4v1h-4zM8 6h4v1h-4zM1 7h4v1h-4zM8 7h4v1h-4zM3 8h7v1h-7zM2 9h9v1h-9zM2 10h2v1h-2zM5 10h3v1h-3zM9 10h2v1h-2zM5 11h3v1h-3z"/>
+    </svg>
+  </button>
+
+  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Сменить тему" data-tip="тема">
     <svg class="moon" viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
       <path d="M4 1h2v1h-2zM3 2h2v1h-2zM2 3h3v1h-3zM1 4h4v1h-4zM1 5h4v1h-4zM1 6h5v1h-5zM1 7h5v1h-5zM1 8h7v1h-7zM2 9h9v1h-9zM3 10h7v1h-7zM4 11h5v1h-5z"/>
     </svg>
@@ -30,165 +89,1121 @@
     </svg>
   </button>
 
-  <main class="home" id="home">
-    <h1>архив писем</h1>
+  <button class="motion-toggle" id="motion-toggle" type="button" aria-label="Анимации" aria-pressed="true" data-tip="анимации">
+    <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+      <path class="star" d="M6 0h1v3h-1zM5 3h3v1h-3zM4 4h5v1h-5zM3 5h7v1h-7zM0 6h13v1h-13zM3 7h7v1h-7zM4 8h5v1h-5zM5 9h3v1h-3zM6 10h1v3h-1z"/>
+      <path class="slash" d="M0 12h2v1h-2zM1 11h2v1h-2zM2 10h2v1h-2zM3 9h2v1h-2zM4 8h2v1h-2zM5 7h2v1h-2zM6 6h2v1h-2zM7 5h2v1h-2zM8 4h2v1h-2zM9 3h2v1h-2zM10 2h2v1h-2zM11 1h2v1h-2zM12 0h1v1h-1z"/>
+    </svg>
+  </button>
 
-    <ul class="letters">
-      <li><button class="link" data-letter="0">письмо 1</button></li>
-      <li><button class="link" data-letter="1">письмо 2</button></li>
-    </ul>
+  <button class="sound-toggle" id="sound-toggle" type="button" aria-label="Звук" aria-pressed="false" data-tip="звук">
+    <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+      <path class="spk" d="M1 4h3v5h-3zM4 3h1v7h-1zM5 2h1v9h-1zM6 1h1v11h-1zM8 5h1v3h-1zM10 3h1v7h-1z"/>
+      <path class="slash" d="M0 12h2v1h-2zM1 11h2v1h-2zM2 10h2v1h-2zM3 9h2v1h-2zM4 8h2v1h-2zM5 7h2v1h-2zM6 6h2v1h-2zM7 5h2v1h-2zM8 4h2v1h-2zM9 3h2v1h-2zM10 2h2v1h-2zM11 1h2v1h-2zM12 0h1v1h-1z"/>
+    </svg>
+  </button>
 
-    <p class="note">какой-то текст</p>
+  <!-- выход: появляется после входа; стирает запомненный ключ и перезагружает страницу -->
+  <button class="logout-toggle" id="logout" type="button" aria-label="Выйти" data-tip="выход" hidden>
+    <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+      <path d="M1 1h6v1h-6zM1 2h1v9h-1zM1 11h6v1h-6zM4 6h9v1h-9zM11 5h1v1h-1zM11 7h1v1h-1zM10 4h1v1h-1zM10 8h1v1h-1z"/>
+    </svg>
+  </button>
+
+  <!-- «пустота»: глаз; прячет весь интерфейс и оставляет только фон. Нигде не сохраняется, после перезагрузки сбрасывается.
+       На компьютере стоит над кнопкой выхода, после нажатия переезжает на её место; на телефоне — справа снизу. -->
+  <button class="peek-toggle" id="peek" type="button" aria-label="Пустота: спрятать всё, кроме фона" aria-pressed="false" data-tip="пустота">
+    <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+      <path class="eye" d="M4 2h5v1h-5zM2 3h9v1h-9zM1 4h3v1h-3zM9 4h3v1h-3zM0 5h2v1h-2zM5 5h3v1h-3zM11 5h2v1h-2zM0 6h2v1h-2zM5 6h3v1h-3zM11 6h2v1h-2zM0 7h2v1h-2zM5 7h3v1h-3zM11 7h2v1h-2zM1 8h3v1h-3zM9 8h3v1h-3zM2 9h9v1h-9zM4 10h5v1h-5z"/>
+      <path class="slash" d="M0 12h2v1h-2zM1 11h2v1h-2zM2 10h2v1h-2zM3 9h2v1h-2zM4 8h2v1h-2zM5 7h2v1h-2zM6 6h2v1h-2zM7 5h2v1h-2zM8 4h2v1h-2zM9 3h2v1h-2zM10 2h2v1h-2zM11 1h2v1h-2zM12 0h1v1h-1z"/>
+    </svg>
+  </button>
+
+  <!-- лицензия на шрифт: слева снизу, при наведении гаснет, ведёт на страницу шрифта -->
+  <a class="font-license" href="https://int10h.org/oldschool-pc-fonts/" target="_blank" rel="noopener noreferrer">
+    <span>WebPlus IBM MDA</span>
+    <span>CC BY-SA 4.0</span>
+  </a>
+
+  <!-- вход по коду доступа: письма расшифровываются в браузере и существуют только в памяти -->
+  <form class="gate" id="gate" autocomplete="off">
+    <div class="gate-box">
+      <label class="gate-title" for="gate-pass">код доступа</label>
+      <div class="field">
+        <input id="gate-pass" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" maxlength="256" required aria-describedby="gate-msg">
+      </div>
+      <div class="gate-row">
+        <p class="gate-msg" id="gate-msg" role="status" aria-live="polite"><span id="gate-text"></span><span class="loader" id="gate-loader" hidden></span></p>
+        <button class="link" type="submit">войти</button>
+      </div>
+      <!-- квадратик «запомнить меня»: без галочки ключ не сохраняется, и после перезагрузки код спросят снова -->
+      <label class="remember">
+        <input type="checkbox" id="gate-remember">
+        <span class="chk" aria-hidden="true"><svg viewBox="0 0 5 4" shape-rendering="crispEdges"><path d="M4 0h1v1h-1zM3 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z"/></svg></span>
+        <span>запомнить меня на этом устройстве</span>
+      </label>
+    </div>
+  </form>
+
+  <aside class="about" id="about">
+    <div class="about-panel" id="about-panel" role="region" aria-label="О проекте">
+      <div class="about-clip"><p class="about-text" id="about-text"></p></div>
+    </div>
+    <button class="info-btn" id="about-btn" type="button" aria-expanded="false" aria-controls="about-panel">
+      <svg viewBox="0 0 3 7" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h1v1h-1zM0 2h2v1h-2zM1 3h1v3h-1zM0 6h3v1h-3z"/></svg>
+      что за проект?
+    </button>
+  </aside>
+
+  <main class="home" id="home" hidden>
+    <h1>архив заметок</h1>
+    <p class="count" id="count">количество заметок: 0</p>
+    <!-- блок заметок + тонкая полоска прокрутки справа (полоска вне блока, чтобы её не гасила маска) -->
+    <div class="letters-box">
+      <div class="letters-wrap" id="letters-wrap"><ul class="letters" id="letters"></ul></div>
+      <div class="sbar" id="sbar" aria-hidden="true"><i id="sbar-thumb"></i></div>
+    </div>
+    <p class="note">все заметки зашифрованы. при закрытии сессии доступ будет закрыт</p>
   </main>
 
   <div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-hidden="true">
-    <article class="sheet" id="sheet">
-      <button class="link back" id="back">← назад</button>
+    <article class="sheet">
+      <button class="link back" id="back" type="button">← назад</button>
       <h2 id="letter-title"></h2>
       <p class="date" id="letter-date"></p>
       <div class="body" id="letter-body"></div>
     </article>
   </div>
 
+  <div class="fade" aria-hidden="true"></div>
+  <div class="fade fade-top" aria-hidden="true"></div>
+
   <script>
-    /* ---------- Письма: меняйте тексты здесь ----------
-       Текст пишется внутри обратных кавычек `...` так, как он должен выглядеть:
-         • пустая строка между кусками текста — новый абзац
-         • обычный перенос строки — разрыв строки внутри абзаца
-       Отступы в начале строк игнорируются, поэтому текст можно ровно выравнивать в коде. */
-    const letters = [
-      {
-        title: "письмо 1",
-        date: "1 января",
-        text: `
-          <v>Здравствуй. Это текст первого письма.</v> Здесь может быть что угодно: воспоминание, новость, несколько строк на память.
-
-          Письма лежат в архиве тихо и ждут, пока их откроют. Каждое из них — <u>маленький кусочек времени</u>, который не хочется <i>терять</i>.
-
-          Пиши, когда будет настроение.
-          Или не пиши.
-        `,
-        sign: "— автор"
-      },
-      {
-        title: "письмо 2",
-        date: "15 февраля",
-        text: `
-          Привет. Это второе письмо. Замените этот текст на свой, добавляйте или убирайте абзацы пустой строкой.
-
-          Чтобы добавить новое письмо, допишите объект в список letters и ещё одну кнопку в главный список.
-        `,
-        sign: "— автор"
-      }
-    ];
-
-    /* ---------- Смена темы ---------- */
-    const themeBtn = document.getElementById("theme-toggle");
-    themeBtn.addEventListener("click", () => {
+    /* Тексты писем лежат в зашифрованном файле letters.enc (см. private/encrypt.mjs).
+       В этом коде их нет: они появляются в памяти только после ввода верного кода
+       и пропадают при перезагрузке страницы. */
+    (() => {
+      const $ = id => document.getElementById(id);
       const root = document.documentElement;
-      const dark = root.dataset.theme !== "dark";
-      if (dark) root.dataset.theme = "dark"; else delete root.dataset.theme;
-      try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
-    });
+      const isOff = () => root.dataset.motion === "off";
+      const list = $("letters"), home = $("home"), viewer = $("viewer"), backBtn = $("back");
+      const titleEl = $("letter-title"), dateEl = $("letter-date"), bodyEl = $("letter-body");
+      let letters = [];
+      let lastTrigger = null;
 
-    const viewer = document.getElementById("viewer");
-    const titleEl = document.getElementById("letter-title");
-    const dateEl = document.getElementById("letter-date");
-    const bodyEl = document.getElementById("letter-body");
-    const backBtn = document.getElementById("back");
-    let lastTrigger = null;
+      /* ---------- Вход по коду доступа ---------- */
+      const AAD = "letters-v1";                      // должно совпадать с private/encrypt.mjs
+      const gate = $("gate"), pass = $("gate-pass"), gateText = $("gate-text"), loader = $("gate-loader");
+      const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+      let vault = null, busy = false;
 
-    /* ---------- Форматирование текста писем ----------
-       <v>текст</v> — выделение как мышкой
-       <u>текст</u> — подчёркивание
-       <i>текст</i> — курсив
-       <b>текст</b> — жирный
-       Теги можно вкладывать друг в друга. Разбор безопасный: никакого innerHTML. */
-    const RICH = {
-      v: ["span", "hl"],
-      u: ["u", ""],
-      i: ["em", ""],
-      b: ["strong", ""]
-    };
+      const loadVault = () => vault || (vault = fetch("letters.enc", { cache: "no-store" })
+        .then(r => { if (!r.ok) throw new Error("http"); return r.json(); })
+        .catch(e => { vault = null; throw e; }));
 
-    /* добавляет текст; перенос строки превращается в <br> */
-    function addText(parent, str) {
-      str.split("\n").forEach((part, i) => {
-        if (i) parent.appendChild(document.createElement("br"));
-        if (part) parent.appendChild(document.createTextNode(part));
+      /* код -> ключ (32 байта); именно ключ, а не сам код, запоминается на устройстве до кнопки «выйти» */
+      async function deriveRaw(password, v) {
+        const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password.normalize("NFKC")), "PBKDF2", false, ["deriveBits"]);
+        const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: b64(v.salt), iterations: v.iter }, base, 256);
+        return new Uint8Array(bits);
+      }
+
+      async function openVault(raw, v) {
+        const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
+        const buf = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(v.iv), additionalData: new TextEncoder().encode(AAD) }, key, b64(v.data));
+        return JSON.parse(new TextDecoder().decode(buf));
+      }
+
+      /* запомненный ключ: лежит в localStorage этого браузера, пока не нажата «выйти» */
+      const KEY_NAME = "lk";
+      const readSaved = () => { try { return localStorage.getItem(KEY_NAME); } catch (e) { return null; } };
+      const writeSaved = raw => { try { localStorage.setItem(KEY_NAME, btoa(String.fromCharCode(...raw))); } catch (e) {} };
+      const clearSaved = () => { try { localStorage.removeItem(KEY_NAME); } catch (e) {} };
+
+      /* показать главную и кнопку выхода */
+      function showHome() {
+        home.hidden = false;
+        $("logout").hidden = false;
+        document.body.classList.add("in");        // экран после входа
+        renderList();
+      }
+
+      function say(text, working) {
+        gateText.textContent = text;
+        loader.hidden = !working;
+        gate.classList.toggle("bad", !working && !!text);
+      }
+
+      function fail(text) {
+        busy = false;
+        say(text, false);
+        gate.classList.remove("shake");
+        void gate.offsetWidth;                       // перезапуск анимации тряски
+        gate.classList.add("shake");
+        pass.value = "";
+        pass.focus({ preventScroll: true });
+      }
+
+      gate.addEventListener("submit", async e => {
+        e.preventDefault();
+        if (busy || !pass.value) return;
+        busy = true;
+        gate.classList.remove("shake");
+        say("расшифровка", true);
+
+        let v;
+        try { v = await loadVault(); } catch (err) { return fail("архив недоступен"); }
+        let raw;
+        try { raw = await deriveRaw(pass.value, v); letters = await openVault(raw, v); } catch (err) { return fail("неверный код"); }
+        if ($("gate-remember").checked) writeSaved(raw);   // галочка стоит — запоминаем ключ, иначе после перезагрузки код спросят снова
+        else clearSaved();
+
+        pass.value = "";
+        say("", false);
+        gate.classList.add("done");
+        about.classList.add("done");
+        if (!isOff()) await new Promise(r => setTimeout(r, 350));
+        gate.hidden = true;
+        about.hidden = true;
+        showHome();
       });
-    }
 
-    /* делит текст письма на абзацы по пустой строке */
-    function paragraphsOf(letter) {
-      if (typeof letter.text === "string") {
-        return letter.text
-          .split("\n").map(s => s.trim()).join("\n")   // убираем отступы строк
-          .trim()
-          .split(/\n{2,}/);                            // пустая строка = новый абзац
+      if (!window.crypto || !crypto.subtle) {
+        pass.disabled = true;
+        say("нужен https", false);
+      } else {
+        loadVault().catch(() => {});                 // качаем файл заранее
+        pass.focus({ preventScroll: true });
       }
-      return letter.paragraphs || [];                  // старый формат: список абзацев
-    }
 
-    function renderRich(text, parent) {
-      const re = /<(v|u|i|b)>([\s\S]*?)<\/\1>/g;
-      let last = 0, m;
-      while ((m = re.exec(text))) {
-        if (m.index > last) addText(parent, text.slice(last, m.index));
-        const [tag, cls] = RICH[m[1]];
-        const el = document.createElement(tag);
-        if (cls) el.className = cls;
-        renderRich(m[2], el);
-        parent.appendChild(el);
-        last = re.lastIndex;
+      /* ---------- «Что за проект?»: окно раскрывается, текст печатается ---------- */
+      const REPO = "https://github.com";             // сюда можно поставить ссылку на конкретный репозиторий
+      const ABOUT = [                                // части текста; у части с href получается ссылка
+        { t: "Тихий архив для ваших писем и заметок. Всё хранится онлайн только в зашифрованном виде: без кода доступа записи — лишь случайный набор символов, а расшифровываются они прямо в вашем браузере. Сам код никуда не отправляется и нигде не сохраняется: если отметить «запомнить меня», на вашем устройстве остаётся только ключ расшифровки, и он стирается кнопкой «выйти». Заметки можно красиво оформлять: " },
+        { t: "выделять главное", f: "v" },
+        { t: ", " },
+        { t: "подчёркивать", f: "u" },
+        { t: ", делать акценты " },
+        { t: "курсивом", f: "i" },
+        { t: " и " },
+        { t: "жирным шрифтом", f: "b" },
+        { t: ". Проект с " },
+        { t: "открытым исходным кодом", href: REPO },
+        { t: " — любой может убедиться, что внутри нет ничего лишнего. Поделиться доступом просто: достаточно передать код тому, кому доверяете. Спокойно, удобно и одинаково хорошо на телефоне и на компьютере." }
+      ];
+      const ABOUT_LEN = ABOUT.reduce((s, p) => s + p.t.length, 0);
+      const about = $("about"), aboutBtn = $("about-btn"), aboutText = $("about-text");
+      let typeRaf = 0;
+
+      function extLink(href, text) {
+        const a = document.createElement("a");
+        a.className = "ext";
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = text;
+        return a;
       }
-      if (last < text.length) addText(parent, text.slice(last));
-    }
 
-    function openLetter(index, trigger) {
-      const l = letters[index];
-      if (!l) return;
-      lastTrigger = trigger || null;
+      /* выводит символы [from, to) описания в контейнер, сохраняя ссылку */
+      function renderAbout(parent, from, to) {
+        let pos = 0;
+        for (const p of ABOUT) {
+          const a = Math.max(from, pos), b = Math.min(to, pos + p.t.length);
+          if (b > a) {
+            const s = p.t.slice(a - pos, b - pos);
+            if (p.href) parent.append(extLink(p.href, s));
+            else if (p.f) {
+              const [tag, cls] = RICH[p.f];          // те же стили, что и в письмах
+              const el = document.createElement(tag);
+              if (cls) el.className = cls;
+              el.textContent = s;
+              parent.append(el);
+            } else parent.append(document.createTextNode(s));
+          }
+          pos += p.t.length;
+        }
+      }
 
-      titleEl.textContent = l.title;
-      dateEl.textContent = l.date;
-      bodyEl.textContent = "";
-      paragraphsOf(l).forEach(t => {
-        const p = document.createElement("p");
-        renderRich(t, p);
-        bodyEl.appendChild(p);
+      function typeAbout() {
+        cancelAnimationFrame(typeRaf);
+        aboutText.textContent = "";
+        if (isOff()) { renderAbout(aboutText, 0, ABOUT_LEN); return; }
+        const typed = document.createElement("span"), rest = document.createElement("span");
+        rest.className = "ghost";
+        aboutText.append(typed, rest);
+        const t0 = performance.now() + 150;          // печать стартует чуть позже начала раскрытия
+        const step = now => {
+          const n = Math.min(ABOUT_LEN, Math.max(0, Math.floor((now - t0) / 2.2)));   // ≈ 450 символов в секунду
+          typed.textContent = rest.textContent = "";
+          renderAbout(typed, 0, n);
+          renderAbout(rest, n, ABOUT_LEN);
+          if (n < ABOUT_LEN) typeRaf = requestAnimationFrame(step);
+          else { aboutText.textContent = ""; renderAbout(aboutText, 0, ABOUT_LEN); }
+        };
+        typeRaf = requestAnimationFrame(step);
+      }
+
+      function toggleAbout(open) {
+        about.classList.toggle("open", open);
+        aboutBtn.setAttribute("aria-expanded", open);
+        if (open) typeAbout(); else cancelAnimationFrame(typeRaf);
+      }
+
+      /* на телефоне окно закрывается свайпом вниз */
+      let swipeY = null, swipeX = 0;
+      document.addEventListener("touchstart", e => {
+        if (!about.classList.contains("open") || e.touches.length !== 1) { swipeY = null; return; }
+        /* если текст длинный и листается внутри окна, свайп вниз — это прокрутка, а не закрытие */
+        const clip = about.querySelector(".about-clip");
+        if (clip.contains(e.target) && clip.scrollHeight > clip.clientHeight + 1) { swipeY = null; return; }
+        swipeY = e.touches[0].clientY;
+        swipeX = e.touches[0].clientX;
+      }, { passive: true });
+      document.addEventListener("touchend", e => {
+        if (swipeY === null) return;
+        const t = e.changedTouches[0];
+        const dy = t.clientY - swipeY, dx = Math.abs(t.clientX - swipeX);
+        swipeY = null;
+        if (dy > 50 && dy > dx * 1.5) toggleAbout(false);
+      }, { passive: true });
+      document.addEventListener("touchcancel", () => { swipeY = null; }, { passive: true });
+      aboutBtn.addEventListener("click", () => toggleAbout(!about.classList.contains("open")));
+
+      /* после «назад» из кэша браузера страница перезагружается: без запомненного ключа снова просим код */
+      addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
+
+      /* ---------- Автоматический вход и выход ----------
+         Если на устройстве запомнен ключ, письма открываются без кода. Не подошёл (код сменили) — просим код заново. */
+      function showGate(msg) {
+        gate.hidden = false;
+        about.hidden = false;
+        say(msg, false);
+        pass.focus({ preventScroll: true });
+      }
+      if (window.crypto && crypto.subtle && readSaved()) {
+        gate.hidden = true;                          // не показываем окно входа, пока проверяем ключ
+        about.hidden = true;
+        (async () => {
+          let v;
+          try { v = await loadVault(); } catch (err) { return showGate("архив недоступен"); }
+          try { letters = await openVault(b64(readSaved()), v); } catch (err) { clearSaved(); return showGate(""); }
+          showHome();
+        })();
+      }
+      /* подъём блока кода привязан к полю кода, а не к :focus-within: клик по «запомнить меня» (в том числе на телефоне,
+         где метка забирает фокус себе) не должен его опускать. Опускается только когда фокус ушёл куда-то ещё. */
+      const gateBox = document.querySelector(".gate-box"), remember = document.querySelector(".remember");
+      let keepLift = false, keepTimer = 0;
+      pass.addEventListener("focus", () => gateBox.classList.add("lift"));
+      pass.addEventListener("blur", () => { if (!keepLift) gateBox.classList.remove("lift"); });
+      remember.addEventListener("mousedown", e => e.preventDefault());
+      remember.addEventListener("pointerdown", () => {
+        keepLift = gateBox.classList.contains("lift");
+        clearTimeout(keepTimer);
+        keepTimer = setTimeout(() => {            // клик не случился (палец увели в сторону): возвращаем обычное поведение
+          if (keepLift) { keepLift = false; if (document.activeElement !== pass) gateBox.classList.remove("lift"); }
+        }, 700);
       });
-      if (l.sign) {
-        const s = document.createElement("p");
-        s.className = "sign";
-        s.textContent = l.sign;
-        bodyEl.appendChild(s);
+      remember.addEventListener("click", () => {
+        if (keepLift) pass.focus({ preventScroll: true });   // фокус возвращаем в поле, блок остаётся поднятым
+        keepLift = false;
+        clearTimeout(keepTimer);
+      });
+      /* шестерёнка на телефоне: раскрывает / сворачивает кнопки; нажатие в любом другом месте сворачивает.
+         В режиме «пустота» меню остаётся как было, чтобы глаз вернулся на своё место в нём. */
+      const gear = $("gear");
+      const setMenu = on => { document.body.classList.toggle("menu", on); gear.setAttribute("aria-expanded", on); };
+      gear.addEventListener("click", () => setMenu(!document.body.classList.contains("menu")));
+      document.addEventListener("pointerdown", e => {
+        const b = document.body;
+        if (!b.classList.contains("menu") || b.classList.contains("peek")) return;
+        if (e.target.closest(".gear-toggle, .theme-toggle, .motion-toggle, .sound-toggle, .peek-toggle")) return;
+        setMenu(false);
+      });
+
+      /* «пустота»: класс на body прячет всё, кроме фона и самой кнопки. Состояние нигде не хранится: после перезагрузки сбрасывается */
+      $("peek").addEventListener("click", () => {
+        const on = !document.body.classList.contains("peek");
+        document.body.classList.toggle("peek", on);
+        $("peek").setAttribute("aria-pressed", on);
+        if (on && document.activeElement && document.activeElement !== $("peek")) document.activeElement.blur();   // убираем клавиатуру на телефоне
+      });
+      $("logout").addEventListener("click", () => { clearSaved(); location.reload(); });
+
+      /* ---------- Список писем на главной ---------- */
+      function renderList() {
+        list.textContent = "";
+        $("count").textContent = "количество заметок: " + letters.length;
+        /* заметки появляются по одной друг за другом; при большом количестве шаг короче, вся очередь укладывается примерно в секунду */
+        list.style.setProperty("--step", Math.min(.06, .8 / Math.max(1, letters.length - 1)) + "s");
+        letters.forEach((l, i) => {
+          const li = document.createElement("li");
+          const b = document.createElement("button");
+          b.className = "link";
+          b.type = "button";
+          b.textContent = l.title;
+          b.dataset.i = i;
+          li.style.setProperty("--i", i);
+          li.appendChild(b);
+          list.appendChild(li);
+        });
+      }
+      /* тонкая полоска прокрутки справа от блока заметок: видна, только если заметки не помещаются */
+      const listWrap = $("letters-wrap"), sbar = $("sbar"), thumb = $("sbar-thumb");
+      const updateBar = () => {
+        const sh = listWrap.scrollHeight, ch = listWrap.clientHeight;
+        const more = sh > ch + 2;
+        sbar.classList.toggle("on", more);
+        if (!more) return;
+        const track = sbar.clientHeight;
+        const th = Math.max(24, track * ch / sh);
+        const max = sh - ch;
+        thumb.style.height = th + "px";
+        thumb.style.transform = "translateY(" + ((track - th) * (max ? listWrap.scrollTop / max : 0)) + "px)";
+      };
+      listWrap.addEventListener("scroll", updateBar, { passive: true });
+      if (window.ResizeObserver) { const ro = new ResizeObserver(updateBar); ro.observe(listWrap); ro.observe(list); }
+      addEventListener("resize", updateBar);
+
+      /* за полоску можно цепляться пальцем или мышью: тянем ползунок или тапаем по дорожке */
+      let grab = null;
+      const dragTo = y => {
+        const tr = sbar.getBoundingClientRect(), th = thumb.offsetHeight;
+        const span = tr.height - th, max = listWrap.scrollHeight - listWrap.clientHeight;
+        if (span <= 0) return;
+        const pos = Math.min(span, Math.max(0, y - tr.top - grab));
+        listWrap.scrollTop = pos / span * max;
+      };
+      sbar.addEventListener("pointerdown", e => {
+        if (!sbar.classList.contains("on")) return;
+        const t = thumb.getBoundingClientRect();
+        grab = (e.clientY >= t.top && e.clientY <= t.bottom) ? e.clientY - t.top : t.height / 2;
+        sbar.setPointerCapture(e.pointerId);
+        sbar.classList.add("drag");
+        dragTo(e.clientY);
+        e.preventDefault();
+      });
+      sbar.addEventListener("pointermove", e => { if (grab !== null) dragTo(e.clientY); });
+      const endDrag = () => { grab = null; sbar.classList.remove("drag"); };
+      sbar.addEventListener("pointerup", endDrag);
+      sbar.addEventListener("pointercancel", endDrag);
+
+      list.addEventListener("click", e => {
+        const b = e.target.closest("[data-i]");
+        if (b) openLetter(+b.dataset.i, b);
+      });
+
+      /* ---------- Смена темы ---------- */
+      $("theme-toggle").addEventListener("click", () => {
+        const dark = root.dataset.theme !== "dark";
+        if (dark) root.dataset.theme = "dark"; else delete root.dataset.theme;
+        try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) {}
+      });
+
+      /* ---------- Анимации: включить / отключить ---------- */
+      const motionBtn = $("motion-toggle");
+      const syncMotion = () => motionBtn.setAttribute("aria-pressed", !isOff());
+      motionBtn.addEventListener("click", () => {
+        const off = !isOff();
+        if (off) root.dataset.motion = "off"; else delete root.dataset.motion;
+        try { localStorage.setItem("motion", off ? "off" : "on"); } catch (e) {}
+        syncMotion();
+      });
+      syncMotion();
+
+      /* ---------- Звук нажатий: sounds/click.mp3 ----------
+         По умолчанию выключен. Включается кнопкой под кнопкой анимаций, выбор запоминается.
+         Играет при нажатии на любую кнопку. mp3 выбран потому, что его понимают все браузеры, включая iPhone. */
+      const soundBtn = $("sound-toggle");
+      const soundOn = () => root.dataset.sound === "on";
+      /* Web Audio: файл скачивается и декодируется один раз, каждое нажатие — лёгкий одноразовый источник.
+         Так быстрые нажатия не создают кучу <audio> и не упираются в лимиты браузера. */
+      const SND_URL = "sounds/click.mp3", SND_VOL = .6;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      let ac = null, rawP = null, bufP = null, snd = null, fallback = null;
+
+      function getBuffer() {
+        if (snd) return Promise.resolve(snd);
+        if (!bufP) {
+          rawP = rawP || fetch(SND_URL).then(r => { if (!r.ok) throw new Error("http"); return r.arrayBuffer(); });
+          bufP = rawP
+            .then(ab => new Promise((ok, no) => ac.decodeAudioData(ab.slice(0), ok, no)))   // колбэки — для старых Safari
+            .then(b => (snd = b))
+            .catch(err => { bufP = rawP = null; throw err; });                                // при сбое попробуем заново
+        }
+        return bufP;
       }
 
-      viewer.scrollTop = 0;
-      document.body.classList.add("reading");
-      viewer.setAttribute("aria-hidden", "false");
-      // два кадра, чтобы переход точно запустился
-      requestAnimationFrame(() => requestAnimationFrame(() => viewer.classList.add("open")));
-      setTimeout(() => backBtn.focus({ preventScroll: true }), 300);
-      history.pushState({ letter: index }, "");
-    }
+      function playClick() {
+        if (!soundOn()) return;
+        try {
+          if (!AC) {                                  // совсем старый браузер: один <audio>, перематываем в начало
+            fallback = fallback || new Audio(SND_URL);
+            fallback.currentTime = 0;
+            fallback.volume = SND_VOL;
+            fallback.play().catch(() => {});
+            return;
+          }
+          if (!ac) ac = new AC();                     // создаём внутри нажатия — иначе браузер не разрешит звук
+          if (ac.state !== "running") ac.resume().catch(() => {});
+          getBuffer().then(buf => {
+            const src = ac.createBufferSource(), g = ac.createGain();
+            src.buffer = buf;
+            g.gain.value = SND_VOL;
+            src.connect(g);
+            g.connect(ac.destination);
+            src.start(0);
+          }).catch(() => {});
+        } catch (e) {}
+      }
+      const syncSound = () => soundBtn.setAttribute("aria-pressed", soundOn());
+      soundBtn.addEventListener("click", () => {
+        const on = !soundOn();
+        if (on) root.dataset.sound = "on"; else delete root.dataset.sound;
+        try { localStorage.setItem("sound", on ? "on" : "off"); } catch (e) {}
+        syncSound();
+      });
+      syncSound();
+      /* слушатель на документе срабатывает после обработчика самой кнопки,
+         поэтому при включении звука кнопка щёлкает сразу, а при выключении — молчит */
+      document.addEventListener("click", e => { if (e.target.closest("button, input[type=checkbox]")) playClick(); });
 
-    function closeLetter(fromPopState) {
-      if (!viewer.classList.contains("open")) return;
-      viewer.classList.remove("open");
-      viewer.setAttribute("aria-hidden", "true");
-      document.body.classList.remove("reading");
-      if (lastTrigger) lastTrigger.focus({ preventScroll: true });
-      if (!fromPopState && history.state && history.state.letter !== undefined) history.back();
-    }
+      /* ---------- Логотип уезжает вверх и гаснет, пока листается письмо ----------
+         На телефоне вместе с ним уезжают и кнопки управления (тема, анимации, звук, выйти). */
+      const brand = document.querySelector(".brand");
+      const ctrls = [...document.querySelectorAll(".theme-toggle, .motion-toggle, .sound-toggle, .logout-toggle")];
+      const phone = matchMedia("(max-width: 600px)");
+      function scrollAway() {
+        const y = viewer.scrollTop;
+        const move = (el, on) => {
+          el.style.transform = on && y ? `translateY(${-y}px)` : "";
+          el.style.opacity = on && y ? Math.max(0, 1 - y / 50) : "";
+          el.style.pointerEvents = on && y > 30 ? "none" : "";
+        };
+        move(brand, true);
+        ctrls.forEach(b => move(b, phone.matches));
+      }
+      viewer.addEventListener("scroll", scrollAway, { passive: true });
+      phone.addEventListener("change", scrollAway);
 
-    document.querySelectorAll("[data-letter]").forEach(btn => {
-      btn.addEventListener("click", () => openLetter(Number(btn.dataset.letter), btn));
-    });
-    backBtn.addEventListener("click", () => closeLetter(false));
-    document.addEventListener("keydown", e => { if (e.key === "Escape") closeLetter(false); });
-    window.addEventListener("popstate", () => closeLetter(true));
+      /* ---------- Разбор текста письма (без innerHTML) ---------- */
+      const RICH = { v: ["span", "hl"], u: ["u", ""], i: ["em", ""], b: ["strong", ""] };
+
+      function addText(parent, str) {
+        str.split("\n").forEach((part, i) => {
+          if (i) parent.appendChild(document.createElement("br"));
+          if (part) parent.appendChild(document.createTextNode(part));
+        });
+      }
+
+      /* форматирование: <v>выделение</v> <u>подчёркнутое</u> <i>курсив</i> <b>жирный</b>
+         и ссылка: <a href="https://...">текст</a> (только http/https) */
+      function renderRich(text, parent) {
+        const re = /<(v|u|i|b)>([\s\S]*?)<\/\1>|<a href="(https?:\/\/[^"\s]+)">([\s\S]*?)<\/a>/g;
+        let last = 0, m;
+        while ((m = re.exec(text))) {
+          if (m.index > last) addText(parent, text.slice(last, m.index));
+          let el;
+          if (m[3]) {
+            el = extLink(m[3], "");
+            renderRich(m[4], el);
+          } else {
+            const [tag, cls] = RICH[m[1]];
+            el = document.createElement(tag);
+            if (cls) el.className = cls;
+            renderRich(m[2], el);
+          }
+          parent.appendChild(el);
+          last = re.lastIndex;
+        }
+        if (last < text.length) addText(parent, text.slice(last));
+      }
+
+      function openLetter(index, trigger) {
+        const l = letters[index];
+        if (!l) return;
+        lastTrigger = trigger;
+
+        titleEl.textContent = l.title;
+        dateEl.textContent = l.date || "";
+        bodyEl.textContent = "";
+        l.text.split("\n").map(s => s.trim()).join("\n").trim().split(/\n{2,}/).forEach(t => {
+          const p = document.createElement("p");
+          renderRich(t, p);
+          bodyEl.appendChild(p);
+        });
+        if (l.sign) {
+          const s = document.createElement("p");
+          s.className = "sign";
+          s.textContent = l.sign;
+          bodyEl.appendChild(s);
+        }
+
+        viewer.scrollTop = 0;
+        document.body.classList.add("reading");
+        viewer.setAttribute("aria-hidden", "false");
+        void viewer.offsetWidth;                 // фиксируем начальный кадр, чтобы переход точно запустился
+        viewer.classList.add("open");
+        setTimeout(() => backBtn.focus({ preventScroll: true }), 300);
+        history.pushState({ letter: index }, "");
+      }
+
+      function closeLetter(fromPopState) {
+        if (!viewer.classList.contains("open")) return;
+        viewer.classList.remove("open");
+        viewer.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("reading");
+        brand.style.transform = brand.style.opacity = brand.style.pointerEvents = "";
+        if (lastTrigger) lastTrigger.focus({ preventScroll: true });
+        if (!fromPopState && history.state && history.state.letter !== undefined) history.back();
+      }
+
+      backBtn.addEventListener("click", () => closeLetter(false));
+      document.addEventListener("keydown", e => {
+        if (e.key !== "Escape") return;
+        closeLetter(false);
+        if (about.classList.contains("open")) toggleAbout(false);
+      });
+      addEventListener("popstate", () => closeLetter(true));
+
+      /* ---------- Летающие пиксели ----------
+         Пиксели медленно плывут вверх, покачиваются, мерцают ступенями
+         и разлетаются от курсора. Цвет берётся из темы. */
+      (() => {
+        const cv = $("px"), ctx = cv.getContext("2d");
+        const dots = [];
+        const comets = []; // кометы с коротким распадающимся хвостом
+        let W = 0, H = 0, D = 1, color = "#111", last = 0, raf = 0, mx = -999, my = -999;
+
+        const rnd = (a, b) => a + Math.random() * (b - a);
+        const spawn = anywhere => ({
+          x: rnd(0, W), y: anywhere ? rnd(0, H) : H + 10,
+          s: [2, 2, 3, 3, 4][(Math.random() * 5) | 0],   // размер пикселя
+          v: rnd(32, 80),                                 // скорость вверх, px/с (всегда быстрее созвездий)
+          a: rnd(.2, .6),                                 // прозрачность
+          amp: rnd(4, 14), f: rnd(.2, .7), p: rnd(0, 6.28),
+          tw: rnd(.4, 1.3), tp: rnd(0, 6.28),             // мерцание
+          ox: 0, oy: 0                                    // смещение от курсора
+        });
+
+        /* ---------- Кометы ----------
+           Кометы появляются сверху и опускаются по плавной, слегка извилистой траектории.
+           Голова крупная, свечение собрано из мерцающих квадратных пикселей, а хвост
+           медленно рассеивается. Палитра приглушённая — от соломенного до янтарного. */
+        const cometPalette = [
+          [218, 190, 119], [199, 164, 91], [230, 207, 151],
+          [184, 150, 77], [211, 177, 111], [236, 216, 166]
+        ];
+        function spawnComet() {
+          // Входят с боков почти горизонтально, затем плавно уходят вниз
+          // по широкой параболе. Высота старта распределена по всему экрану.
+          const fromLeft = Math.random() < .5;
+          const direction = fromLeft ? 1 : -1;
+          const startY = rnd(Math.max(28, H * .08), Math.max(40, H * .78));
+          const vx = rnd(72, 112);
+          return {
+            x: fromLeft ? rnd(-90, -28) : rnd(W + 28, W + 90),
+            y: startY, startX: fromLeft ? -1 : 1, direction, startY,
+            vx, curveDrop: rnd(H * .9, H * 1.15), initialDrop: rnd(H * .28, H * .38),
+            size: rnd(10, 14), life: 0,
+            maxLife: Math.max(7, (W + 180) / vx * rnd(1.02, 1.12)),
+            tail: [], nextSpark: 0, color: cometPalette[(Math.random() * cometPalette.length) | 0],
+            glow: rnd(.38, .58), flickerSeed: rnd(0, 100),
+            phaseOffset: rnd(0, Math.PI * 2)
+          };
+        }
+        function drawComet(q, dt, t) {
+          q.life += dt;
+          // Движение по выраженной параболе: сначала комета пересекает край
+          // почти горизонтально, затем всё быстрее уходит вниз. Вертикальное
+          // смещение зависит от доли пройденного экрана, а не от прямой скорости.
+          q.x += q.direction * q.vx * dt;
+          const flightDuration = Math.max(1, (W + 180) / q.vx);
+          const progress = Math.min(1.25, q.life / flightDuration);
+          q.y = q.startY + q.initialDrop * progress + q.curveDrop * progress * progress; // заметное снижение начинается сразу, затем ускоряется по параболе
+          if (q.life > q.maxLife || q.x < -130 || q.x > W + 130 || q.y > H + 100) return true;
+
+          // Искры отделяются от головы и дольше сохраняются, постепенно рассеиваясь.
+          q.nextSpark -= dt;
+          if (q.nextSpark <= 0) {
+            const curveVy = (q.initialDrop + 2 * q.curveDrop * progress) / flightDuration;
+            const curveVx = q.direction * q.vx;
+            const norm = Math.max(1, Math.hypot(curveVx, curveVy));
+            q.tail.push({
+              x: q.x - curveVx / norm * rnd(5, 14),
+              y: q.y - curveVy / norm * rnd(5, 14),
+              age: 0, life: rnd(.9, 1.9), size: rnd(2, 4.8), driftX: rnd(-18, 18), driftY: rnd(-12, 12),
+              tone: Math.random()
+            });
+            q.nextSpark = rnd(.025, .055);
+          }
+          const [r, g, b] = q.color;
+          ctx.save();
+          const fadeIn = Math.min(1, q.life * 1.8);
+          const fadeOut = Math.min(1, (q.maxLife - q.life) * 1.05);
+          const alpha = Math.max(0, Math.min(fadeIn, fadeOut));
+          const flicker = .58 + .42 * Math.abs(Math.sin(t * 13 + q.flickerSeed)) * (.65 + .35 * Math.sin(t * 7.3 + q.flickerSeed * 1.7));
+          ctx.globalCompositeOperation = "lighter";
+
+          // Неровное пиксельное свечение: отдельные квадраты загораются и гаснут,
+          // поэтому ореол не выглядит круглым или одинаковым от кадра к кадру.
+          const glowStep = Math.max(2, Math.round(3.2 * D));
+          const gx = Math.round(q.x * D), gy = Math.round(q.y * D);
+          for (let py = -4; py <= 4; py++) {
+            for (let px = -4; px <= 4; px++) {
+              if (px === 0 && py === 0) continue;
+              const distance = Math.hypot(px, py);
+              // Скруглённый пиксельный ореол: меньше радиус и мягкие углы.
+              if (distance > 4.4 || (Math.abs(px) === 4 && Math.abs(py) === 4) || Math.random() < .22 + distance * .055) continue;
+              const blink = Math.random() < .24 ? rnd(.12, .35) : rnd(.45, 1);
+              const block = Math.max(1, Math.round(rnd(1.2, 2.7) * D));
+              ctx.globalAlpha = q.glow * alpha * flicker * blink * (1 - distance / 4.8) * .9;
+              ctx.fillStyle = `rgb(${r},${g},${b})`;
+              ctx.fillRect(gx + px * glowStep, gy + py * glowStep, block, block);
+            }
+          }
+
+          for (let i = q.tail.length - 1; i >= 0; i--) {
+            const s = q.tail[i];
+            s.age += dt;
+            if (s.age >= s.life) { q.tail.splice(i, 1); continue; }
+            const k = 1 - s.age / s.life;
+            const drift = s.age * .85;
+            const warmth = s.tone > .7 ? [236, 216, 166] : s.tone > .35 ? [211, 177, 111] : [184, 150, 77];
+            ctx.globalAlpha = k * alpha * (s.tone > .7 ? .52 : .32) * flicker;
+            ctx.fillStyle = `rgb(${warmth[0]},${warmth[1]},${warmth[2]})`;
+            const ss = Math.max(1, Math.round(s.size * k * D));
+            ctx.fillRect(Math.round((s.x + s.driftX * drift) * D), Math.round((s.y + s.driftY * drift) * D), ss, ss);
+          }
+          // Пиксельно-круглая голова: силуэт собирается из квадратных клеток,
+          // как у планет, сужаясь к краям вместо идеального квадрата.
+          const head = Math.max(7, Math.round(q.size * D));
+          const cell = Math.max(1, Math.round(head / 7));
+          const pattern = [ [2,4], [1,5], [0,6], [0,6], [0,6], [1,5], [2,4] ];
+          const actual = cell * 7;
+          const hx = gx - Math.floor(actual / 2), hy = gy - Math.floor(actual / 2);
+          ctx.globalAlpha = alpha * (.7 + flicker * .22);
+          ctx.fillStyle = `rgb(${r},${g},${b})`;
+          for (let row = 0; row < pattern.length; row++) {
+            const [from, to] = pattern[row];
+            for (let col = from; col <= to; col++) ctx.fillRect(hx + col * cell, hy + row * cell, cell, cell);
+          }
+          // Светлое ядро тоже круглое в пиксельном стиле.
+          ctx.globalAlpha = alpha * flicker * .88;
+          ctx.fillStyle = "rgb(244, 229, 190)";
+          const coreCell = Math.max(1, Math.round(cell * .72));
+          ctx.fillRect(gx - coreCell, gy - coreCell, coreCell, coreCell);
+          ctx.fillRect(gx, gy - coreCell, coreCell, coreCell);
+          ctx.fillRect(gx - coreCell, gy, coreCell, coreCell);
+          ctx.fillRect(gx, gy, coreCell, coreCell);
+          ctx.restore();
+          return false;
+        }
+
+        /* ---------- Созвездия ----------
+           Настоящие фигуры (звёзды: [x, y, яркость 0–2], линии: пары номеров звёзд).
+           Они медленно плывут вверх вместе с пикселями, звёзды мерцают,
+           линии прорисовываются пунктиром из пикселей, рядом появляется название. */
+        const SKY = [
+          { n: "орион",
+            s: [[.6,0,2],[2.1,-1.3,1],[4.2,.5,1],[1.7,3.3,1],[2.3,3,1],[2.9,2.7,1],[.5,6.4,1],[4.5,6,2]],
+            e: [[1,0],[1,2],[0,3],[2,5],[3,4],[4,5],[3,6],[5,7]] },
+          { n: "большая медведица",
+            s: [[0,2,1],[2,1.3,1],[3.8,1.6,1],[5.6,2.2,1],[5.9,4.4,1],[8.6,4.6,1],[8.9,2.4,2]],
+            e: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,3]] },
+          { n: "кассиопея",
+            s: [[0,1,1],[1.6,2.3,2],[3,1.2,1],[4.5,2.2,1],[5.8,.4,1]],
+            e: [[0,1],[1,2],[2,3],[3,4]] },
+          { n: "лебедь",
+            s: [[0,0,2],[0,2.2,1],[0,5,1],[-2,2.2,1],[2.2,2.1,1]],
+            e: [[0,1],[1,2],[3,1],[1,4]] },
+          { n: "скорпион",
+            s: [[0,0,1],[.5,1.2,1],[1,2.8,2],[1.3,3.9,1],[2.2,5,1],[3.4,5.8,1],[4.6,5.9,1],[5.5,5.2,1],[5.3,4.4,1]],
+            e: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8]] },
+          { n: "лев",
+            s: [[0,4.4,2],[.1,3.1,1],[.8,2.2,1],[.6,1,1],[1.3,.4,1],[2.3,.3,1],[4.4,1.6,1],[7.2,2.4,1],[4.6,3,1]],
+            e: [[0,1],[1,2],[2,3],[3,4],[4,5],[2,6],[6,7],[7,8],[8,6],[8,0]] },
+          { n: "малая медведица",
+            s: [[0,0,2],[.9,.8,1],[1.8,1.3,1],[2.7,1.4,1],[2.6,2.6,1],[4.3,2.9,1],[4.5,1.7,1]],
+            e: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,3]] },
+          { n: "лира",
+            s: [[0,0,2],[.5,1.3,1],[1.7,1.5,1],[.6,3,1],[1.9,3.2,1]],
+            e: [[0,1],[0,2],[1,2],[1,3],[2,4],[3,4]] },
+          { n: "близнецы",
+            s: [[0,0,1],[1.8,.5,2],[.5,2.2,1],[1.9,2.6,1],[-.3,4,1],[1.6,4.6,1]],
+            e: [[0,2],[2,4],[1,3],[3,5],[2,3]] },
+          { n: "телец",
+            s: [[2.2,1.6,2],[1.5,.8,1],[.6,1,1],[-.4,2.4,1],[6.2,-1,1],[6,2.6,1],[-1.6,-1.2,1]],
+            e: [[0,4],[0,5],[0,1],[1,2],[2,3]] },
+          { n: "южный крест",
+            s: [[0,4,2],[0,0,1],[-1.6,2.1,2],[1.4,1.9,1]],
+            e: [[0,1],[2,3]] },
+          { n: "андромеда",
+            s: [[0,0,2],[1.6,.8,1],[3.3,1,2],[5.4,1.3,1],[3.8,0,1],[4.4,-.9,1]],
+            e: [[0,1],[1,2],[2,3],[2,4],[4,5]] },
+          { n: "пегас",
+            s: [[0,0,1],[-.4,3.3,1],[3.3,3.7,2],[3.6,.5,1],[-1.7,-1,1],[-3.4,-2,1]],
+            e: [[0,1],[1,2],[2,3],[3,0],[0,4],[4,5]] },
+          { n: "орёл",
+            s: [[0,0,2],[0,-1.2,1],[0,1.2,1],[1.8,.6,1],[3.6,-.9,1],[1.4,2.8,1]],
+            e: [[1,0],[0,2],[0,3],[3,4],[3,5]] },
+          { n: "большой пёс",
+            s: [[0,0,2],[-1.7,-.9,1],[-.9,1,1],[.8,2.3,1],[.2,3.7,2],[1.8,3.6,1]],
+            e: [[1,0],[0,2],[0,3],[2,3],[3,4],[3,5]] },
+          { n: "волопас",
+            s: [[0,4.6,2],[.4,2.4,1],[1.5,2.2,1],[2.7,.5,1],[2.6,1.7,1],[3.4,-.8,1]],
+            e: [[0,1],[1,2],[2,4],[4,3],[3,5],[2,3]] },
+          { n: "персей",
+            s: [[2.2,1,2],[2.6,1.9,1],[.8,2.6,1],[3.6,2.8,1],[3.9,3.9,1],[1.4,.3,1],[1.2,-.9,1]],
+            e: [[0,1],[1,3],[3,4],[0,5],[5,6],[2,1]] },
+          { n: "стрелец",
+            s: [[-.6,.9,1],[.4,2.8,1],[1.8,1.6,1],[1.7,.1,1],[3.2,.5,1],[4.2,1.2,2],[4.5,2.7,1],[3.3,3.2,1]],
+            e: [[0,2],[0,1],[1,7],[7,6],[6,5],[5,4],[4,3],[3,2],[2,4]] },
+          { n: "северная корона",
+            s: [[0,2.4,1],[.7,1.1,1],[1.9,.2,1],[3.2,0,2],[4.4,.9,1],[5,2.3,1]],
+            e: [[0,1],[1,2],[2,3],[3,4],[4,5]] },
+          { n: "дельфин",
+            s: [[0,0,1],[.2,1.2,1],[1.5,1.6,1],[1.7,.4,1],[3.3,3,1]],
+            e: [[0,1],[1,2],[2,3],[3,0],[2,4]] },
+          { n: "возничий",
+            s: [[0,0,2],[2.5,.3,1],[2.7,2.2,1],[.6,3.2,1],[-.8,1.7,1]],
+            e: [[0,1],[1,2],[2,3],[3,4],[4,0]] },
+          { n: "дракон",
+            s: [[0,0,1],[1.2,-.3,1],[1.4,.9,2],[.2,.9,1],[2.6,2,1],[4,2.8,1],[5.4,2.4,1],[6.5,1.6,1],[7.4,2.6,1]],
+            e: [[0,1],[1,2],[2,3],[3,0],[2,4],[4,5],[5,6],[6,7],[7,8]] },
+          { n: "овен",
+            s: [[0,0,2],[-1.5,.5,1],[-2,1,1],[1.8,-.5,1]],
+            e: [[0,1],[1,2],[0,3]] },
+          { n: "геркулес",
+            s: [[0,0,1],[1.9,-.1,1],[1.6,1.7,1],[-.1,1.6,1],[-2.4,1,1],[4,1.1,1]],
+            e: [[0,1],[1,2],[2,3],[3,0],[0,4],[1,5]] }
+        ];
+        for (const c of SKY) {                                  // размеры фигуры в её единицах
+          const xs = c.s.map(p => p[0]), ys = c.s.map(p => p[1]);
+          c.x0 = Math.min(...xs); c.y0 = Math.min(...ys);
+          c.w = Math.max(...xs) - c.x0; c.h = Math.max(...ys) - c.y0;
+        }
+        const sky = [];
+        const clamp01 = v => Math.max(0, Math.min(1, v));
+        /* подписи созвездий и планет: самый мелкий читаемый размер, на телефоне ещё мельче */
+        const labelFont = () => `${Math.round((W < 600 ? 7 : 8) * D)}px ArchiveFont, Georgia, serif`;
+
+        function spawnSky(anywhere) {
+          const used = new Set(sky.map(q => q.c));
+          const free = SKY.filter(c => !used.has(c));
+          const c = free[(Math.random() * free.length) | 0] || SKY[0];
+          const target = (W < 600 ? rnd(130, 180) : rnd(190, 270));   // наибольшая сторона в px
+          const k = target / Math.max(c.w, c.h);
+          const pw = c.w * k, ph = c.h * k;
+          const m = Math.min(32, W * .05);
+          /* из 30 случайных мест берём то, что дальше всего от остальных созвездий */
+          let bx = m, by = H + 20, best = -1;
+          for (let t = 0; t < 30; t++) {
+            const x = rnd(m, Math.max(m, W - pw - m));
+            const y = anywhere ? rnd(H * .05, Math.max(H * .06, H * .85 - ph * .5)) : H + 20;
+            let dmin = Infinity;
+            for (const o of sky.concat(planets)) {                // и от созвездий, и от планет
+              const dx = (x + pw / 2) - (o.x + o.pw / 2), dy = (y + ph / 2) - (o.y + o.ph / 2);
+              dmin = Math.min(dmin, Math.hypot(dx, dy * .8));
+            }
+            if (dmin > best) { best = dmin; bx = x; by = y; }
+          }
+          return {
+            c, k, pw, ph, age: 0,
+            x: bx,
+            y: by,
+            v: rnd(18, 28),                                 // скорость вверх, px/с (медленнее любого пикселя)
+            amp: rnd(6, 14), f: rnd(.08, .2), p: rnd(0, 6.28)
+          };
+        }
+
+        function drawSky(q, t, dt) {
+          q.y -= q.v * dt;
+          /* линии начинают рисоваться, только когда созвездие целиком видно на экране (с подписью) */
+          if (q.y + q.ph + 24 < H) q.age += dt;
+          const c = q.c, k = q.k;
+          if (q.y + q.ph < -20) return true;                    // уплыло за верхний край: заменяем новым
+          /* плавно проявляется, когда верхний край фигуры выходит снизу, и гаснет, когда нижний уходит вверх */
+          const edge = H * .2;
+          const a = clamp01((H - q.y) / edge) * clamp01((q.y + q.ph) / edge);
+          if (a <= 0) return;
+          const ox = q.x + Math.sin(t * q.f + q.p) * q.amp;
+          const pt = i => [ox + (c.s[i][0] - c.x0) * k, q.y + (c.s[i][1] - c.y0) * k];
+
+          /* линии: пунктир из пикселей, прорисовывается по очереди */
+          const reveal = clamp01((q.age - .1) / 2) * c.e.length;
+          ctx.globalAlpha = a * .38;
+          for (let j = 0; j < c.e.length; j++) {
+            const f = clamp01(reveal - j);
+            if (f <= 0) break;
+            const [x1, y1] = pt(c.e[j][0]), [x2, y2] = pt(c.e[j][1]);
+            const len = Math.hypot(x2 - x1, y2 - y1), n = Math.floor(len * f / 5);
+            for (let d = 0; d <= n; d++) {
+              const u = d * 5 / len;
+              ctx.fillRect(Math.round((x1 + (x2 - x1) * u) * D), Math.round((y1 + (y2 - y1) * u) * D), D, D);
+            }
+          }
+          /* звёзды: квадратные пиксели, мерцают ступенями */
+          for (let i = 0; i < c.s.length; i++) {
+            const [x, y] = pt(i);
+            const tw = Math.round((Math.sin(t * 1.1 + i * 1.7 + q.p) + 1) / 2 * 3) / 3;
+            const size = Math.round((2 + c.s[i][2]) * D);
+            ctx.globalAlpha = a * (.55 + .45 * tw);
+            ctx.fillRect(Math.round(x * D), Math.round(y * D), size, size);
+            if (c.s[i][2] === 2) {                                // яркие звёзды: крест из пикселей
+              ctx.globalAlpha = a * .3 * (.4 + tw);
+              const r = Math.round(3 * D), s1 = Math.round(D);
+              ctx.fillRect(Math.round(x * D) + (size >> 1), Math.round(y * D) - r - s1, s1, r);
+              ctx.fillRect(Math.round(x * D) + (size >> 1), Math.round(y * D) + size + s1, s1, r);
+              ctx.fillRect(Math.round(x * D) - r - s1, Math.round(y * D) + (size >> 1), r, s1);
+              ctx.fillRect(Math.round(x * D) + size + s1, Math.round(y * D) + (size >> 1), r, s1);
+            }
+          }
+          /* название */
+          const la = clamp01((q.age - 1.8) / 1) * a * .5;
+          if (la > .01) {
+            ctx.globalAlpha = la;
+            ctx.font = labelFont();
+            ctx.textBaseline = "top";
+            ctx.fillText(c.n, Math.round(ox * D), Math.round((q.y + q.ph + 6) * D));
+          }
+        }
+
+        /* ---------- Планеты ----------
+           Все восемь планет Солнечной системы в виде крошечных пиксельных спрайтов приглушённых цветов:
+           у каждой свои полосы, пятна и объём (светлая сторона сверху-слева, тень снизу-справа).
+           Появляются в случайное время и в случайном месте снизу, медленно плывут вверх.
+           Новая планета ставится только далеко от других планет и созвездий. */
+        const CELL = 3;                                           // размер «пикселя» планеты, px
+        const hexMul = (c, m) => {
+          const n = parseInt(c.slice(1), 16);
+          return "#" + [n >> 16, n >> 8, n].map(v => Math.max(0, Math.min(255, Math.round((v & 255) * m))).toString(16).padStart(2, "0")).join("");
+        };
+        const inDisc = (n, x, y) => Math.hypot(x - (n - 1) / 2, y - (n - 1) / 2) <= n / 2 - .05;
+        function sphere(cells, n, ox, oy, colorAt) {              // шар n×n клеток с ступенчатой тенью
+          const c = (n - 1) / 2;
+          for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+            const col = inDisc(n, x, y) && colorAt(x, y);
+            if (!col) continue;
+            const l = ((c - x) * .6 + (c - y) * .8) / (n / 2);   // >0 — светлая сторона
+            cells.push([ox + x, oy + y, hexMul(col, l < -.45 ? .58 : l < -.1 ? .8 : l > .55 ? 1.12 : 1)]);
+          }
+        }
+        const fromMap = (rows, pal) => cells => sphere(cells, rows.length, 0, 0, (x, y) => pal[rows[y][x]]);
+        const banded = (n, bands, spots = {}) => cells => sphere(cells, n, 0, 0, (x, y) => spots[x + "," + y] || bands[y]);
+
+        const PLANET_DEFS = [
+          { n: "меркурий", w: 5, h: 5, fill: fromMap(
+              [".cab.", "caaab", "aabaa", "aaaab", ".aab."], { a: "#9a9288", b: "#6f685f", c: "#b3aca2" }) },
+          { n: "венера", w: 7, h: 7, fill: fromMap(
+              ["..ccc..", ".cccaa.", "ccaacca", "aaccaac", "ccaacca", ".aaccc.", "..aac.."], { a: "#bf9a62", c: "#d8bb88" }) },
+          { n: "земля", w: 7, h: 7, fill: fromMap(
+              ["..owo..", ".olloo.", "ollowoo", "oollooo", "woolloo", ".ooowo.", "..ooo.."], { o: "#4f79ad", l: "#5e9460", w: "#d5dde3" }) },
+          { n: "марс", w: 5, h: 5, fill: fromMap(
+              [".ppp.", "rrdrr", "rdrrr", "rrrdr", ".rrr."], { r: "#b9694c", d: "#8c4a37", p: "#dcd3cc" }) },
+          { n: "юпитер", w: 11, h: 11, fill: cells => {
+              const bands = ["#cdb48f", "#a97b55", "#d8c7aa", "#9a6a45", "#c8a47a", "#b08258", "#d6c0a0", "#9a6a45", "#c8a47a", "#a97b55", "#cdb48f"];
+              sphere(cells, 11, 0, 0, (x, y) => {
+                if ((y === 6 && (x === 7 || x === 8)) || (y === 7 && x === 8)) return "#b4573f";   // красное пятно
+                return bands[Math.min(10, y + (((x * 3 + y * 5) % 7 === 0) ? 1 : 0))];
+              });
+            } },
+          { n: "сатурн", w: 19, h: 11, fill: cells => {
+              const bands = ["#dccb9c", "#c7ad76", "#d6c08c", "#bfa468", "#d3bd8a", "#c4aa72", "#dccb9c", "#c7ad76", "#d3bd8a"];
+              sphere(cells, 9, 5, 1, (x, y) => bands[y]);
+              for (let y = 0; y < 11; y++) for (let x = 0; x < 19; x++) {      // кольцо: задняя часть скрыта за шаром
+                const dx = x - 9, dy = y - 5;
+                const o = (dx / 9.4) ** 2 + (dy / 2.6) ** 2, i = (dx / 6.2) ** 2 + (dy / 1.5) ** 2;
+                if (o > 1 || i <= 1) continue;
+                if (dy < 0 && inDisc(9, x - 5, y - 1)) continue;
+                cells.push([x, y, o > .62 ? "#c9b88e" : "#a8956b"]);
+              }
+            } },
+          { n: "уран", w: 9, h: 9, fill: banded(9,
+              ["#a8d6d8", "#98cacd", "#8fc4c8", "#98cacd", "#a8d6d8", "#98cacd", "#8fc4c8", "#7fb6bd", "#8fc4c8"]) },
+          { n: "нептун", w: 9, h: 9, fill: banded(9,
+              ["#5f80cc", "#4f6fb8", "#4d6cb8", "#5b7bc6", "#4a68b2", "#4f6fb8", "#3f5aa0", "#4a68b2", "#4f6fb8"],
+              { "2,2": "#9db4e6", "3,2": "#9db4e6", "5,4": "#2f4182", "6,4": "#2f4182" }) }
+        ];
+        for (const d of PLANET_DEFS) {                          // собираем клетки, убираем повторы, группируем по цвету
+          const cells = [], byPos = new Map(), byColor = new Map();
+          d.fill(cells);
+          for (const [x, y, col] of cells) byPos.set(y * 100 + x, [x, y, col]);   // поздние клетки (кольцо) перекрывают ранние
+          for (const [x, y, col] of byPos.values()) {
+            if (!byColor.has(col)) byColor.set(col, []);
+            byColor.get(col).push(x, y);
+          }
+          d.groups = [...byColor];
+        }
+        const planets = [];
+        let nextPlanet = 0, nextComet = 0;
+        const maxPlanets = () => (W < 600 ? 2 : 3);
+        const maxComets = () => (W < 600 ? 2 : 3);
+
+        const rectGap = (a, b) => Math.hypot(
+          Math.max(0, a.x0 - b.x1, b.x0 - a.x1),
+          Math.max(0, a.y0 - b.y1, b.y0 - a.y1));
+        const skyRect = q => ({ x0: q.x - 14, y0: q.y, x1: q.x + q.pw + 14, y1: q.y + q.ph + 14 });   // с подписью и покачиванием
+        const planetRect = q => ({ x0: q.x - q.amp, y0: q.y, x1: q.x + q.pw + q.amp, y1: q.y + q.ph + 12 });   // с подписью
+
+        function spawnPlanet(anywhere) {
+          const used = new Set(planets.map(q => q.d));
+          const free = PLANET_DEFS.filter(d => !used.has(d));
+          if (!free.length) return null;
+          const d = free[(Math.random() * free.length) | 0];
+          const pw = d.w * CELL, ph = d.h * CELL, m = Math.min(32, W * .06);
+          for (let t = 0; t < 60; t++) {                       // ищем место подальше от всех
+            const q = {
+              d, pw, ph, amp: rnd(2, 5), f: rnd(.1, .25), p: rnd(0, 6.28),
+              x: rnd(m, Math.max(m, W - pw - m)),
+              y: anywhere ? rnd(H * .08, Math.max(H * .1, H * .85 - ph)) : H + 20,
+              v: 12                                            // у всех планет одна скорость: расстояния между ними не меняются
+            };
+            const r = planetRect(q);
+            const okSky = sky.every(s => rectGap(r, skyRect(s)) > 80);
+            const okPl = planets.every(o => rectGap(r, planetRect(o)) > 110);
+            if (okSky && okPl) return q;
+          }
+          return null;
+        }
+
+        function drawPlanet(q, t, dt) {
+          q.y -= q.v * dt;
+          if (q.y + q.ph + 12 < -10) return true;
+          const edge = Math.min(H * .2, 120);
+          const a = clamp01((H - q.y) / edge) * clamp01((q.y + q.ph + 12) / edge);
+          if (a <= .01) return false;
+          const ox = Math.round((q.x + Math.sin(t * q.f + q.p) * q.amp) * D), oy = Math.round(q.y * D);
+          const cs = Math.round(CELL * D);
+          ctx.globalAlpha = a * .55;
+          for (const [col, xy] of q.d.groups) {
+            ctx.fillStyle = col;
+            for (let i = 0; i < xy.length; i += 2) ctx.fillRect(ox + xy[i] * cs, oy + xy[i + 1] * cs, cs, cs);
+          }
+          /* название: впритык под планетой, того же размера и вида, что у созвездий */
+          ctx.fillStyle = color;
+          ctx.globalAlpha = a * .5;
+          ctx.font = labelFont();
+          ctx.textBaseline = "top";
+          ctx.fillText(q.d.n, ox, oy + Math.round((q.ph + 3) * D));
+          return false;
+        }
+
+
+        const readColor = () => { color = getComputedStyle(root).getPropertyValue("--ink").trim() || color; };
+
+        function resize() {
+          W = innerWidth; H = innerHeight; D = Math.min(devicePixelRatio || 1, 2);
+          cv.width = Math.round(W * D);
+          cv.height = Math.round(H * D);
+          const n = Math.max(14, Math.min(70, Math.round(W * H / 16000)));
+          while (dots.length < n) dots.push(spawn(true));
+          dots.length = n;
+          const ns = Math.max(2, Math.min(4, Math.round(W * H / 300000) + 1));
+          while (sky.length < ns) sky.push(spawnSky(true));
+          sky.length = ns;
+          if (!planets.length && !nextPlanet) {                 // первые планеты на экране в случайных местах
+            for (let i = 0; i < (W < 600 ? 1 : 2); i++) { const q = spawnPlanet(true); if (q) planets.push(q); }
+            nextPlanet = performance.now() / 1000 + rnd(4, 9);
+          }
+        }
+
+        function frame(now) {
+          raf = 0;
+          if (isOff()) return;
+          const dt = Math.min((now - last) / 1000, .05);
+          last = now;
+          const t = now / 1000;
+          ctx.clearRect(0, 0, cv.width, cv.height);
+          ctx.fillStyle = color;
+          if (t >= nextPlanet) {                                // новая планета в случайный момент
+            if (planets.length < maxPlanets()) { const q = spawnPlanet(false); if (q) planets.push(q); }
+            nextPlanet = t + rnd(7, 18);
+          }
+          if (t >= nextComet) {
+            if (comets.length < maxComets()) comets.push(spawnComet());
+            nextComet = t + rnd(3.8, 7.2);
+          }
+          for (let i = comets.length - 1; i >= 0; i--) if (drawComet(comets[i], dt, t)) comets.splice(i, 1);
+          for (let i = planets.length - 1; i >= 0; i--) if (drawPlanet(planets[i], t, dt)) planets.splice(i, 1);
+          for (let i = 0; i < sky.length; i++) {
+            if (drawSky(sky[i], t, dt)) sky[i] = spawnSky(false);
+          }
+          for (let i = 0; i < dots.length; i++) {
+            const p = dots[i];
+            p.y -= p.v * dt;
+            if (p.y < -10) { dots[i] = spawn(false); continue; }
+
+            const x = p.x + Math.sin(t * p.f + p.p) * p.amp + p.ox;
+            const y = p.y + p.oy;
+            const dx = x - mx, dy = y - my, d2 = dx * dx + dy * dy;
+            if (d2 < 10000 && d2 > .01) {                 // курсор отталкивает в радиусе 100px
+              const d = Math.sqrt(d2), k = (100 - d) / 100 * 220 * dt;
+              p.ox += dx / d * k;
+              p.oy += dy / d * k;
+            }
+            const damp = Math.exp(-dt * 2.5);
+            p.ox *= damp; p.oy *= damp;
+
+            const tw = Math.round((Math.sin(t * p.tw + p.tp) + 1) / 2 * 3) / 3;   // 4 ступени яркости
+            ctx.globalAlpha = p.a * (.35 + .65 * tw);
+            const s = Math.round(p.s * D);
+            ctx.fillRect(Math.round(x * D), Math.round(y * D), s, s);
+          }
+          raf = requestAnimationFrame(frame);
+        }
+
+        /* запуск / остановка при смене темы или режима анимаций */
+        function sync() {
+          readColor();
+          if (isOff()) {
+            cancelAnimationFrame(raf);
+            raf = 0;
+            ctx.clearRect(0, 0, cv.width, cv.height);
+          } else if (!raf) {
+            last = performance.now();
+            raf = requestAnimationFrame(frame);
+          }
+        }
+
+        addEventListener("resize", resize);
+        new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ["data-theme", "data-motion"] });
+        addEventListener("pointermove", e => { mx = e.clientX; my = e.clientY; }, { passive: true });
+        const away = () => { mx = my = -999; };
+        document.addEventListener("pointerleave", away);
+        addEventListener("pointerup", e => { if (e.pointerType !== "mouse") away(); });
+        addEventListener("pointercancel", away);
+        resize();
+        sync();
+      })();
+    })();
+  </script>
+  <script>
+    /* экран загрузки уходит, когда готово всё: страница, стили, картинки и шрифт;
+       минимум 300 мс, чтобы не мигал, и страховка 10 с, чтобы не зависнуть при сбое сети */
+    (() => {
+      const boot = document.getElementById("boot"), root = document.documentElement;
+      if (!boot) return;
+      const t0 = performance.now();
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        const wait = Math.max(0, 300 - (performance.now() - t0));
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            root.classList.remove("booting");   // стартуют анимации появления
+            boot.classList.add("hide");
+            setTimeout(() => boot.remove(), 450);
+          });
+        }, wait);
+      };
+      const loaded = new Promise(r => document.readyState === "complete" ? r() : addEventListener("load", r, { once: true }));
+      const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+      Promise.all([loaded, fonts]).then(finish, finish);
+      setTimeout(finish, 10000);
+    })();
   </script>
 </body>
 </html>

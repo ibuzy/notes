@@ -1,14 +1,7 @@
-/* ---------- Шрифт ----------
-   Положите файл шрифта в папку fonts/ рядом с этим файлом
-   и назовите его font.woff2 (или font.woff / font.ttf / font.otf). */
+/* ---------- Шрифт: fonts/font.woff2 ---------- */
 @font-face {
   font-family: "ArchiveFont";
-  src: url("fonts/font.woff2") format("woff2"),
-       url("fonts/font.woff")  format("woff"),
-       url("fonts/font.ttf")   format("truetype"),
-       url("fonts/font.otf")   format("opentype");
-  font-weight: normal;
-  font-style: normal;
+  src: url("fonts/font.woff2") format("woff2");
   font-display: swap;
 }
 
@@ -17,10 +10,11 @@
   --paper: #fff;
   --muted: #777;
   --ease: cubic-bezier(.65, 0, .35, 1);
+  --tb: 36px;                       /* размер кнопок управления справа сверху */
+  --ti: 20px;                       /* размер иконки в них */
+  --pad: clamp(24px, 8vw, 120px);   /* общий левый отступ: шапка и текст на одной линии */
   color-scheme: light;
 }
-
-/* Тёмная тема: чёрный фон, светлый текст */
 :root[data-theme="dark"] {
   --ink: #f2f2f2;
   --paper: #0a0a0a;
@@ -28,151 +22,244 @@
   color-scheme: dark;
 }
 
+/* на телефоне кнопки управления ещё компактнее */
+@media (max-width: 600px) {
+  :root { --tb: 30px; --ti: 17px; }
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { -webkit-text-size-adjust: 100%; }
+html, body { overflow: hidden; }   /* страница не листается: листаются только блок заметок и письмо */
 
 body {
   font-family: "ArchiveFont", Georgia, "Times New Roman", serif;
   background: var(--paper);
   color: var(--ink);
   line-height: 1.6;
-  min-height: 100vh;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
   transition: background-color .5s var(--ease), color .5s var(--ease);
 }
+a, button { -webkit-tap-highlight-color: transparent; }
+a, img { -webkit-touch-callout: none; }
+button:focus, a:focus { outline: none; }
+::selection { background: transparent; }
+[hidden] { display: none !important; }
+/* в поле ввода выделение и набор должны работать (иначе на iOS нельзя печатать) */
+input { font: inherit; color: inherit; -webkit-user-select: text; user-select: text; }
+input::selection { background: var(--ink); color: var(--paper); }
 
-/* ---------- Шапка слева: аватарка + ibuzy projects ---------- */
+/* ---------- Летающие пиксели (рисует canvas) ---------- */
+#px {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ---------- Шапка: аватарка + название ---------- */
 .brand {
   position: fixed;
   top: max(16px, env(safe-area-inset-top));
-  /* тот же левый отступ, что у основного текста (.home), чтобы всё стояло по одной линии */
-  left: max(clamp(24px, 8vw, 120px), env(safe-area-inset-left));
+  left: max(var(--pad), env(safe-area-inset-left));
   z-index: 20;
-  height: 44px;               /* та же высота, что у кнопки темы — они на одном уровне */
+  height: 44px;
   display: flex;
   align-items: center;
   gap: 10px;
   color: var(--ink);
   text-decoration: none;
   font-size: 16px;
-  -webkit-tap-highlight-color: transparent;
-  transition: color .5s var(--ease);
 }
-.brand:focus { outline: none; }
 .brand:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+/* при чтении письма логотип уезжает вверх и гаснет вместе с прокруткой (см. скрипт) */
+.brand { transition: opacity .25s, color .3s; }
+/* при наведении название плавно гаснет, как у кнопки «что за проект?» */
+.brand:hover, .brand:focus-visible, .brand:active { color: var(--muted); }
 
 .brand-pic {
-  display: block;
   width: 30px;
   height: 30px;
   border-radius: 50%;
   object-fit: cover;
-  -webkit-user-drag: none;
 }
 
-.brand-text {
-  position: relative;
-  display: inline-block;
-}
-/* линия под текстом — та же анимация, что у писем */
-.brand-text::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -.15em;
-  width: 100%;
-  height: 1px;
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: right center;
-  transition: transform .45s var(--ease);
-}
-.brand:hover .brand-text::after,
-.brand:focus-visible .brand-text::after,
-.brand:active .brand-text::after {
-  transform: scaleX(1);
-  transform-origin: left center;
-}
-
-/* ---------- Кнопка смены темы ---------- */
-.theme-toggle {
+/* ---------- Лицензия на шрифт слева снизу ---------- */
+.font-license {
   position: fixed;
-  top: max(16px, env(safe-area-inset-top));
-  right: max(16px, env(safe-area-inset-right));
+  left: max(16px, env(safe-area-inset-left));      /* прямо в углу, как кнопки справа */
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  font-size: 9px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-decoration: none;
+  transition: opacity .3s;
+}
+.font-license:hover, .font-license:focus-visible, .font-license:active { opacity: .35; }
+.font-license:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+body.reading .font-license { opacity: 0; pointer-events: none; }
+
+/* ---------- Кнопки управления: тема, анимации, звук (справа сверху), выход и «пустота» (справа снизу) ----------
+   стопкой друг под другом; размер задают --tb и --ti, иконки остаются на одной линии с шапкой */
+.theme-toggle,
+.motion-toggle,
+.sound-toggle,
+.logout-toggle,
+.peek-toggle,
+.gear-toggle {
+  --t0: calc(max(16px, env(safe-area-inset-top)) + (44px - var(--tb)) / 2);
+  position: fixed;
+  top: var(--t0);
+  right: calc(max(16px, env(safe-area-inset-right)) + (44px - var(--tb)) / 2);
   z-index: 20;
-  width: 44px;
-  height: 44px;
+  width: var(--tb);
+  height: var(--tb);
   display: grid;
   place-items: center;
   background: none;
   border: 0;
   color: var(--ink);
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: color .5s var(--ease), opacity .3s;
+  transition: opacity .3s;
 }
-.theme-toggle:hover { opacity: .6; }
-.theme-toggle:focus { outline: none; }
-.theme-toggle:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+.motion-toggle { top: calc(var(--t0) + var(--tb)); }
+.sound-toggle { top: calc(var(--t0) + 2 * var(--tb)); }
+.gear-toggle { display: none; z-index: 21; }            /* шестерёнка есть только на телефоне и всегда поверх выезжающих кнопок */
 
-.theme-toggle svg {
-  grid-area: 1 / 1;
-  width: 26px;   /* 13px сетка x 2 — пиксели получаются чёткими */
-  height: 26px;
-  fill: currentColor;
-  shape-rendering: crispEdges;
-  image-rendering: pixelated;
-  transition: opacity .3s steps(4);   /* ступенчатая смена, как у пиксельной графики */
+/* нижние кнопки (выход и «пустота»): центр на одной линии с текстом лицензии слева снизу
+   (две строки по 12.6px, поэтому центр на 12.6px выше нижнего поля) */
+.logout-toggle,
+.peek-toggle { --slot: calc(max(16px, env(safe-area-inset-bottom)) + 12.6px - var(--tb) / 2); }
+.logout-toggle { top: auto; bottom: var(--slot); }
+
+/* «пустота» (глаз): на компьютере над кнопкой выхода, после нажатия быстро переезжает на её место (справа внизу) */
+.peek-toggle {
+  top: auto;
+  bottom: calc(var(--slot) + var(--tb));
+  transition: opacity .3s, bottom .12s steps(3);
 }
-/* светлая тема: виден месяц (нажать — станет темно) */
-.theme-toggle .sun  { opacity: 0; }
-.theme-toggle .moon { opacity: 1; }
-/* тёмная тема: виден солнечный значок (нажать — станет светло) */
+body.peek .peek-toggle { bottom: var(--slot); opacity: .3; }
+@media (hover: hover) { body.peek .peek-toggle:hover { opacity: .6; } }
+.peek-toggle .slash { opacity: 0; }
+body.peek .peek-toggle .slash { opacity: 1; }
+.peek-toggle path { transition: opacity .3s steps(4); }
+
+/* в режиме «пустота» всё, кроме фона и самой кнопки, плавно гаснет и перестаёт нажиматься */
+body.peek > :not(#px):not(#peek):not(#boot) {
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none !important;
+  transition: opacity .3s steps(4), visibility 0s .3s;
+}
+
+/* подсказки с названием кнопки: мелкий текст слева сверху от значка, вплотную к его углу (только где есть наведение мышью) */
+.theme-toggle::after, .motion-toggle::after, .sound-toggle::after, .logout-toggle::after, .peek-toggle::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: calc(100% - (var(--tb) - var(--ti)) / 2 + 1px);
+  bottom: calc(100% - (var(--tb) - var(--ti)) / 2 + 1px);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s steps(3);
+}
+@media (hover: hover) {
+  .theme-toggle:hover::after, .motion-toggle:hover::after, .sound-toggle:hover::after, .logout-toggle:hover::after, .peek-toggle:hover::after { opacity: 1; }
+}
+.theme-toggle:focus-visible::after, .motion-toggle:focus-visible::after, .sound-toggle:focus-visible::after, .logout-toggle:focus-visible::after, .peek-toggle:focus-visible::after { opacity: 1; }
+
+/* ---------- Телефон ----------
+   Справа сверху шестерёнка (на месте бывшей кнопки анимаций). Кнопки меню раскрываются из неё влево и по диагонали
+   вниз квадратом 2 на 2, шестерёнка стоит справа от верхнего ряда:
+       тема | анимации | ⚙
+       звук | пустота
+   Свёрнутые кнопки спрятаны под шестерёнкой. --cx и --ry — на сколько клеток кнопка отстоит от шестерёнки
+   влево и вниз, --d — очередь появления (чем дальше от шестерёнки, тем позже).
+   Выход стоит справа снизу. В режиме «пустота» глаз по диагонали переезжает на место шестерёнки и обратно в своё место в меню. */
+@media (max-width: 600px) {
+  .gear-toggle { display: grid; top: var(--t0); }
+  .theme-toggle, .motion-toggle, .sound-toggle, .peek-toggle {
+    --r0: calc(max(16px, env(safe-area-inset-right)) + (44px - var(--tb)) / 2);
+    top: calc(var(--t0) + var(--ry) * var(--tb));
+    right: calc(var(--r0) + var(--cx) * var(--tb));
+    bottom: auto;
+    transform: translate(calc(var(--cx) * var(--tb)), calc(var(--ry) * var(--tb) * -1));
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform .2s steps(4), opacity .2s steps(4), visibility 0s .2s, top .15s steps(3), right .15s steps(3);
+  }
+  .motion-toggle { --cx: 1; --ry: 0; --d: 1; }
+  .theme-toggle  { --cx: 2; --ry: 0; --d: 2; }
+  .peek-toggle   { --cx: 1; --ry: 1; --d: 2; }
+  .sound-toggle  { --cx: 2; --ry: 1; --d: 3; }
+  body.menu .theme-toggle, body.menu .motion-toggle, body.menu .sound-toggle, body.menu .peek-toggle {
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: transform .2s steps(4) calc(var(--d) * .04s), opacity .2s steps(4) calc(var(--d) * .04s), visibility 0s, top .15s steps(3), right .15s steps(3);
+  }
+  body.peek .peek-toggle {
+    top: var(--t0);
+    right: var(--r0);
+    bottom: auto;
+    transform: none;
+    opacity: .3;
+    visibility: visible;
+    pointer-events: auto;
+    transition: top .15s steps(3), right .15s steps(3), opacity .3s, visibility 0s, transform .15s steps(3);
+  }
+}
+
+@media (hover: hover) {
+  .theme-toggle:hover, .motion-toggle:hover, .sound-toggle:hover, .logout-toggle:hover, .peek-toggle:hover, .gear-toggle:hover { opacity: .6; }
+}
+.theme-toggle:focus-visible, .motion-toggle:focus-visible, .sound-toggle:focus-visible, .logout-toggle:focus-visible, .peek-toggle:focus-visible, .gear-toggle:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+
+.theme-toggle svg,
+.motion-toggle svg,
+.sound-toggle svg,
+.logout-toggle svg,
+.peek-toggle svg,
+.gear-toggle svg {
+  grid-area: 1 / 1;
+  width: var(--ti);
+  height: var(--ti);
+  fill: currentColor;
+  transition: opacity .3s steps(4);
+}
+.theme-toggle .sun { opacity: 0; }
 :root[data-theme="dark"] .theme-toggle .sun  { opacity: 1; }
 :root[data-theme="dark"] .theme-toggle .moon { opacity: 0; }
 
-/* Выделение текста мышью и пальцем запрещено */
-html, body, * {
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-::selection { background: transparent; }
+/* иконка анимаций: искорка; без анимаций — тусклая и перечёркнутая */
+.motion-toggle path { transition: opacity .3s steps(4); }
+.motion-toggle .slash { opacity: 0; }
+:root[data-motion="off"] .motion-toggle .star { opacity: .35; }
+:root[data-motion="off"] .motion-toggle .slash { opacity: 1; }
 
-/* ---------- Главный экран ---------- */
-.home {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 8vh clamp(24px, 8vw, 120px);
-  transition: opacity .6s var(--ease);
-}
-body.reading .home { opacity: 0; pointer-events: none; }
+/* иконка звука: динамик с «волнами»; по умолчанию звук выключен — тусклая и перечёркнутая */
+.sound-toggle path { transition: opacity .3s steps(4); }
+.sound-toggle .slash { opacity: 1; }
+.sound-toggle .spk { opacity: .35; }
+:root[data-sound="on"] .sound-toggle .slash { opacity: 0; }
+:root[data-sound="on"] .sound-toggle .spk { opacity: 1; }
 
-h1 {
-  font-weight: normal;
-  font-size: clamp(32px, 6vw, 64px);
-  letter-spacing: .01em;
-  margin-bottom: clamp(32px, 6vh, 64px);
-}
-
-ul { list-style: none; }
-li + li { margin-top: .4em; }
-
-.note {
-  margin-top: clamp(48px, 10vh, 112px);
-  font-size: clamp(15px, 1.6vw, 18px);
-  color: var(--muted);
-  max-width: 34em;
-}
-
-/* ---------- Ссылки с линией при наведении ---------- */
+/* ---------- Подчёркивание при наведении (письма и шапка) ---------- */
+.link { position: relative; }
 .link {
-  position: relative;
   display: inline-block;
   font: inherit;
   color: inherit;
@@ -180,13 +267,12 @@ li + li { margin-top: .4em; }
   border: 0;
   cursor: pointer;
   text-align: left;
-  -webkit-tap-highlight-color: transparent;
 }
 .link::after {
   content: "";
   position: absolute;
   left: 0;
-  bottom: -.08em;
+  bottom: -.1em;
   width: 100%;
   height: 1px;
   background: currentColor;
@@ -194,48 +280,473 @@ li + li { margin-top: .4em; }
   transform-origin: right center;
   transition: transform .45s var(--ease);
 }
-.link:hover::after,
-.link:focus-visible::after,
-.link:active::after {
+.link:hover::after, .link:focus-visible::after, .link:active::after {
   transform: scaleX(1);
   transform-origin: left center;
 }
-.link:focus { outline: none; }
 
-.letters .link { font-size: clamp(22px, 3.2vw, 34px); }
+/* ---------- Главный экран ----------
+   Страница не листается: заголовок и подпись на месте, прокручивается только блок заметок.
+   Всё выровнено по центру, слева и справа одинаковые отступы. */
+.home {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: calc(max(16px, env(safe-area-inset-top)) + 72px) 0 calc(max(16px, env(safe-area-inset-bottom)) + 44px);
+  transition: opacity .6s var(--ease);
+}
+body.reading .home { opacity: 0; pointer-events: none; transition-duration: .3s; }
+
+h1 {
+  font-weight: normal;
+  font-size: clamp(32px, 6vw, 64px);
+  letter-spacing: .01em;
+  flex: none;
+  padding: 0 var(--pad);
+  margin-bottom: 6px;
+}
+/* мелкая серая подпись под заголовком, как «все заметки зашифрованы…» */
+.count {
+  flex: none;
+  padding: 0 var(--pad);
+  margin-bottom: clamp(20px, 4vh, 48px);
+  font-size: 12px;
+  color: var(--muted);
+}
+/* мигающий пиксельный курсор после заголовка */
+h1::after {
+  content: "";
+  display: inline-block;
+  width: .38em;
+  height: .09em;
+  margin-left: .14em;
+  background: currentColor;
+  animation: blink 1.1s steps(1) infinite;
+}
+
+ul { list-style: none; }
+
+/* блок заметок: единственное, что листается на главном экране (полоска прокрутки скрыта).
+   Сверху и снизу края плавно гаснут, показывая, что список продолжается.
+   Боковые поля внутри блока равны --pad, поэтому содержимое по центру и симметрично. */
+.letters-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: calc(100% - 24px);                /* по 12px от краёв экрана: полоска не липнет к стенке */
+  max-width: calc(90rem + 2 * var(--pad));
+}
+/* тонкая полоска прокрутки (2px) сразу справа от заметок; верх и низ совпадают с зоной затухания */
+.sbar {
+  position: absolute;
+  top: 20px;
+  bottom: 20px;
+  right: calc(var(--pad) - 12px);          /* вплотную к правому краю заметок (12px от них) */
+  width: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s steps(3);
+}
+.sbar.on { opacity: 1; pointer-events: auto; }
+/* невидимая зона захвата шире самой полоски, чтобы попадать пальцем */
+.sbar::before { content: ""; position: absolute; top: 0; bottom: 0; left: -10px; right: -16px; }
+.sbar { touch-action: none; user-select: none; -webkit-user-select: none; }
+.sbar.drag i { background: var(--ink); }
+.sbar i {
+  display: block;
+  width: 100%;
+  height: 24px;
+  background: var(--muted);
+  will-change: transform;
+}
+.letters-wrap {
+  container-type: inline-size;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding: 20px var(--pad);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+}
+.letters-wrap::-webkit-scrollbar { display: none; }   /* родную полоску прячем, вместо неё .sbar */
+
+/* заметки рядами: не больше 5 в ряду, чем уже экран, тем меньше (на телефоне 2);
+   ряды выровнены по центру, в том числе неполный последний */
+.letters {
+  --gap: clamp(16px, 3cqw, 40px);
+  --n: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .7em var(--gap);
+}
+@container (min-width: 300px) { .letters { --n: 2; } }
+@container (min-width: 490px) { .letters { --n: 3; } }
+@container (min-width: 650px) { .letters { --n: 4; } }
+@container (min-width: 800px) { .letters { --n: 5; } }
+.letters li {
+  width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
+  text-align: center;
+}
+.letters .link {
+  max-width: 100%;
+  text-align: center;
+  font-size: clamp(20px, 2.6vw, 30px);
+  overflow-wrap: anywhere;
+}
+/* пиксельная стрелка слева от письма */
+.letters .link::before {
+  content: "";
+  position: absolute;
+  left: -.75em;
+  top: 50%;
+  width: .32em;
+  height: .56em;
+  margin-top: -.28em;
+  background: currentColor;
+  clip-path: polygon(0 0, 25% 0, 25% 14.29%, 50% 14.29%, 50% 28.57%, 75% 28.57%, 75% 42.86%, 100% 42.86%, 100% 57.14%, 75% 57.14%, 75% 71.43%, 50% 71.43%, 50% 85.71%, 25% 85.71%, 25% 100%, 0 100%);
+  opacity: 0;
+  transform: translateX(-.3em);
+  transition: opacity .2s steps(3), transform .3s steps(3);
+}
+.letters .link:hover::before,
+.letters .link:focus-visible::before { opacity: 1; transform: none; }
+
+.note {
+  flex: none;
+  margin: clamp(16px, 4vh, 48px) auto 0;
+  padding: 0 var(--pad);
+  font-size: 12px;                                     /* мелкая подпись на всех устройствах */
+  color: var(--muted);
+  max-width: calc(34em + 2 * var(--pad));
+}
+/* на компьютере заголовок и подпись слева, на одной линии с логотипом; заметки по центру */
+@media (min-width: 601px) {
+  h1, .count, .note { align-self: flex-start; text-align: left; }
+  .note { margin-left: 0; margin-right: 0; }
+}
+
+
+/* появление при загрузке: ступенчатое, как в пиксельной графике */
+.home > *, .letters li {
+  animation: pop .6s steps(5) backwards;
+}
+/* шаг между заметками задаёт скрипт (--step): чем их больше, тем он короче, но каждая появляется своей очередью */
+.letters li { animation-delay: calc(.15s + var(--i, 0) * var(--step, .06s)); }
+.count { animation-delay: .1s; }
+.note { animation-delay: .5s; }
+
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes pop { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---------- Вход по коду доступа ---------- */
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+/* прямоугольное окно с пиксельной тенью; заголовок «врезан» в верхнюю рамку */
+.gate-box {
+  position: relative;
+  width: min(380px, 100%);
+  padding: 40px 28px 22px;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  animation: pop .6s steps(5) backwards;
+  transition: background-color .5s var(--ease), border-color .5s var(--ease), box-shadow .3s steps(3), transform .3s steps(3);
+}
+/* класс .lift ставит скрипт, пока фокус в поле кода; галочка «запомнить меня» блок не опускает */
+.gate-box.lift { box-shadow: 8px 8px 0 var(--ink); transform: translate(-2px, -2px); }
+
+.gate-title {
+  position: absolute;
+  top: 0;
+  left: 20px;
+  transform: translateY(-50%);
+  padding: 0 .6em;
+  background: var(--paper);
+  font-size: 16px;
+  transition: background-color .5s var(--ease);
+}
+
+.field { position: relative; }
+.field input {
+  display: block;
+  width: 100%;
+  padding: 10px 2px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--muted);
+  border-radius: 0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  font-size: 20px;
+  letter-spacing: .25em;
+  text-align: center;
+}
+/* линия под полем прорисовывается при фокусе, как у ссылок */
+.field::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform .45s var(--ease);
+}
+.field:focus-within::after { transform: scaleX(1); transform-origin: left center; }
+
+.gate-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  min-height: 1.8em;
+  font-size: 15px;
+}
+.gate-msg { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.gate.bad .gate-msg { color: var(--ink); }
+.gate-row .link { font-size: 16px; }
+
+/* квадратик с галочкой и подпись «запомнить меня на этом устройстве» под окном входа; галочка рисуется пикселями */
+.remember {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 22px);
+  display: flex;
+  align-items: center;
+  justify-content: center;            /* квадратик и подпись вместе по центру под окном */
+  gap: .6em;
+  font-size: 15px;
+  color: var(--muted);
+  -webkit-text-stroke: .4px currentColor;   /* чуть плотнее начертание, не меняя шрифт */
+  cursor: pointer;
+  transition: color .3s;
+}
+.remember:hover, .remember:focus-within { color: var(--ink); }
+.remember input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.chk {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+}
+.chk svg { width: 10px; height: 8px; fill: currentColor; opacity: 0; transition: opacity .2s steps(3); }
+.remember input:checked + .chk svg { opacity: 1; }
+.remember input:focus-visible + .chk { outline: 1px solid currentColor; outline-offset: 3px; }
+
+/* пиксельный индикатор: четыре квадрата загораются по очереди */
+.loader {
+  display: inline-block;
+  width: 32px;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px);
+  animation: load 1s steps(1) infinite;
+}
+
+.gate.shake { animation: shake .4s steps(1); }
+.gate.done { animation: out .35s steps(4) forwards; pointer-events: none; }
+
+@keyframes shake {
+  0% { transform: translateX(-8px); }
+  25% { transform: translateX(8px); }
+  50% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+  100% { transform: none; }
+}
+@keyframes out { to { opacity: 0; transform: translateY(-10px); } }
+@keyframes load {
+  0% { clip-path: inset(0 100% 0 0); }
+  20% { clip-path: inset(0 75% 0 0); }
+  40% { clip-path: inset(0 50% 0 0); }
+  60% { clip-path: inset(0 25% 0 0); }
+  80%, 100% { clip-path: inset(0); }
+}
+
+/* ---------- «Что за проект?» внизу экрана входа ---------- */
+.about {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  pointer-events: none;            /* пустое место не перехватывает клики */
+}
+.about > * { pointer-events: auto; }
+.about.done { animation: out .35s steps(4) forwards; }
+.about.done > * { pointer-events: none; }
+
+/* серая текстовая кнопка, без рамки и фона */
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color .3s;
+}
+.info-btn svg { width: 6px; height: 14px; fill: currentColor; }
+.info-btn:hover,
+.info-btn:focus-visible,
+.info-btn[aria-expanded="true"] { color: var(--ink); }
+.info-btn:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+
+/* окно раскрывается по высоте, текст в нём печатается (см. скрипт) */
+.about-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: min(720px, 100%);
+  background: var(--paper);
+  border: 1px solid var(--muted);
+  box-shadow: 4px 4px 0 var(--muted);
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows .45s var(--ease), opacity .3s var(--ease), visibility 0s linear .45s, background-color .5s var(--ease);
+}
+.about.open .about-panel {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows .45s var(--ease), opacity .3s var(--ease), visibility 0s, background-color .5s var(--ease);
+}
+/* окно не выше экрана: сверху оставлено место под кнопки управления, длинный текст листается внутри окна */
+.about-clip {
+  min-height: 0;
+  max-height: calc(100vh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.about-text {
+  padding: 22px;                   /* одинаковый отступ со всех сторон */
+  overflow-wrap: anywhere;         /* длинные слова и ссылки не вылезают за край */
+  font-size: 15px;
+  line-height: 1.7;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+.about-text .ghost { visibility: hidden; }   /* ещё не напечатанная часть держит высоту окна */
 
 /* ---------- Просмотр письма ---------- */
 .viewer {
   position: fixed;
   inset: 0;
   z-index: 10;
-  background: var(--paper);
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;                 /* полоски прокрутки нет, листается как обычно */
   perspective: 1800px;
   perspective-origin: 50% 0;
   visibility: hidden;
   opacity: 0;
-  transition: opacity .5s var(--ease), background-color .5s var(--ease), visibility 0s linear 1s;
+  transition: opacity .5s var(--ease), visibility 0s linear 1s;
 }
 .viewer.open {
   visibility: visible;
   opacity: 1;
-  transition: opacity .4s var(--ease), background-color .5s var(--ease), visibility 0s;
+  transition: opacity .4s var(--ease), visibility 0s;
+}
+
+/* размытие и затухание снизу экрана при чтении: текст плавно проявляется */
+.fade {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(72px, 14vh, 128px);
+  z-index: 11;
+  pointer-events: none;
+}
+.fade::before,
+.fade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity .5s var(--ease);
+}
+body.reading .fade::before,
+body.reading .fade::after { opacity: 1; }
+.fade::before {
+  background: linear-gradient(to top, color-mix(in srgb, var(--paper) 85%, transparent), transparent);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  -webkit-mask-image: linear-gradient(to top, #000 15%, transparent);
+  mask-image: linear-gradient(to top, #000 15%, transparent);
+}
+.fade::after {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(to top, #000, transparent 55%);
+  mask-image: linear-gradient(to top, #000, transparent 55%);
+}
+
+/* пока письмо открыто, фон (пиксели, созвездия, планеты) слегка размыт */
+#px { transition: filter .5s var(--ease); }
+body.reading #px { filter: blur(1px); }
+
+/* то же сверху: текст плавно уходит в размытие у верхнего края, высота полосы как у нижней */
+.fade-top {
+  top: 0;
+  bottom: auto;
+}
+.fade-top::before {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--paper) 85%, transparent), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 15%, transparent);
+  mask-image: linear-gradient(to bottom, #000 15%, transparent);
+}
+.fade-top::after {
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 55%);
+  mask-image: linear-gradient(to bottom, #000, transparent 55%);
+}
+
+/* на телефоне полосы размытия сверху и снизу уже: 24–48px */
+@media (max-width: 600px) {
+  .fade { height: clamp(24px, 6vw, 48px); }
 }
 
 .sheet {
-  max-width: 75rem;   /* на ПК письмо широкое, на телефоне занимает весь экран */
+  max-width: 75rem;
   margin: 0 auto;
-  /* сверху запас, чтобы кнопка «назад» не залезала под шапку */
   padding: clamp(72px, 10vh, 112px) clamp(24px, 6vw, 48px) clamp(48px, 10vh, 120px);
   transform-origin: 50% 0;
   transform: rotateX(-90deg);
   backface-visibility: hidden;
   transition: transform .95s var(--ease);
-  will-change: transform;
 }
-.viewer.open .sheet { transform: rotateX(0deg); }
+.viewer.open .sheet { transform: none; }
 
 .back { margin-bottom: clamp(32px, 6vh, 64px); font-size: 16px; color: var(--muted); }
 .back:hover, .back:focus-visible { color: var(--ink); }
@@ -256,35 +767,41 @@ li + li { margin-top: .4em; }
   text-align: justify;
   text-justify: inter-word;
   hyphens: auto;
-  -webkit-hyphens: auto;
 }
 .body p + p { margin-top: 1.2em; }
 .body .sign { margin-top: 2em; text-align: left; }
 
+/* ---------- Ссылки в тексте (описание проекта и письма) ----------
+   просто подчёркнутые; при наведении плавно гаснут */
+a.ext {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .18em;
+  transition: opacity .3s;
+}
+a.ext:hover, a.ext:focus-visible, a.ext:active { opacity: .5; }
+a.ext:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+
 /* ---------- Форматирование внутри письма ---------- */
-/* <v>текст</v> — как будто выделено мышкой */
 .hl {
   background: var(--ink);
   color: var(--paper);
   padding: .04em .2em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-  transition: background-color .5s var(--ease), color .5s var(--ease);
 }
-/* <u>текст</u> — подчёркнуто */
-.body u {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: .18em;
-}
-/* <i>текст</i> — курсив, <b>текст</b> — жирный */
-.body em { font-style: italic; }
-.body strong { font-weight: bold; }
+.body u, .about-text u { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .18em; }
 
-/* Уважение к настройке "уменьшить анимацию" */
-@media (prefers-reduced-motion: reduce) {
-  .sheet { transition: opacity .3s; transform: none; opacity: 0; }
-  .viewer.open .sheet { opacity: 1; }
-  .link::after, .brand-text::after { transition: none; }
-  .theme-toggle svg { transition: opacity .2s; }
-}
+/* ---------- Режим «без анимаций» (кнопка под сменой темы) ----------
+   Отключает частицы, анимации кнопок и письма, размытие снизу. */
+:root[data-motion="off"] *,
+:root[data-motion="off"] ::before,
+:root[data-motion="off"] ::after { animation: none !important; transition: none !important; }
+:root[data-motion="off"] .sheet { transform: none; }
+:root[data-motion="off"] #px,
+:root[data-motion="off"] .fade { display: none; }
+
+/* полоска прокрутки справа скрыта везде на странице; листание колесом и пальцем работает */
+html, body { scrollbar-width: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { display: none; }
