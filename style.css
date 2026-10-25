@@ -35,7 +35,11 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { -webkit-text-size-adjust: 100%; }
-html, body { overflow: hidden; }   /* страница не листается: листаются только блок заметок и письмо */
+html, body {
+  overflow-x: hidden;
+  overflow-y: auto;                 /* не блокируем нативный pull-to-refresh браузера на телефоне */
+  overscroll-behavior-y: auto;      /* разрешаем браузеру показать собственную стрелку обновления */
+}
 
 body {
   font-family: "ArchiveFont", Georgia, "Times New Roman", serif;

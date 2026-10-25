@@ -368,37 +368,7 @@
       document.addEventListener("touchcancel", () => { swipeY = null; }, { passive: true });
       aboutBtn.addEventListener("click", () => toggleAbout(!about.classList.contains("open")));
 
-      /* мобильное обновление свайпом вниз от верхнего края.
-         Не перехватываем жесты в письмах, списке заметок, окне проекта и полях ввода. */
-      let refreshStart = null, refreshX = 0, refreshTarget = null;
-      const refreshBlocked = el => !!el.closest(
-        ".about, .about-clip, .letters-wrap, .viewer, input, textarea, select, button, a"
-      );
-      document.addEventListener("touchstart", e => {
-        if (window.innerWidth > 600 || e.touches.length !== 1 || about.classList.contains("open")) {
-          refreshStart = null;
-          return;
-        }
-        const t = e.touches[0];
-        if (t.clientY > 90 || refreshBlocked(e.target)) {
-          refreshStart = null;
-          return;
-        }
-        refreshStart = t.clientY;
-        refreshX = t.clientX;
-        refreshTarget = e.target;
-      }, { passive: true });
-      document.addEventListener("touchend", e => {
-        if (refreshStart === null) return;
-        const t = e.changedTouches[0];
-        const dy = t.clientY - refreshStart;
-        const dx = Math.abs(t.clientX - refreshX);
-        refreshStart = null;
-        if (dy >= 90 && dy > dx * 1.4 && !about.classList.contains("open")) {
-          location.reload();
-        }
-      }, { passive: true });
-      document.addEventListener("touchcancel", () => { refreshStart = null; }, { passive: true });
+      /* Обновление свайпом вниз оставляем браузеру: сайт не перехватывает жест. */
 
       /* после «назад» из кэша браузера страница перезагружается: без запомненного ключа снова просим код */
       addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
