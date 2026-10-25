@@ -24,6 +24,11 @@
 
 /* на телефоне кнопки управления ещё компактнее */
 @media (max-width: 600px) {
+  .font-license { font-size: 5px; }
+  .remember { font-size: 11px; gap: .45em; white-space: nowrap; }
+}
+
+@media (max-width: 600px) {
   :root { --tb: 30px; --ti: 17px; }
 }
 
@@ -75,6 +80,7 @@ input::selection { background: var(--ink); color: var(--paper); }
   color: var(--ink);
   text-decoration: none;
   font-size: 16px;
+  line-height: 1;
 }
 .brand:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
 /* при чтении письма логотип уезжает вверх и гаснет вместе с прокруткой (см. скрипт) */
@@ -83,8 +89,8 @@ input::selection { background: var(--ink); color: var(--paper); }
 .brand:hover, .brand:focus-visible, .brand:active { color: var(--muted); }
 
 .brand-pic {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -100,6 +106,7 @@ input::selection { background: var(--ink); color: var(--paper); }
   font-size: 9px;
   line-height: 1.4;
   color: var(--muted);
+  opacity: .4;
   text-decoration: none;
   transition: opacity .3s;
 }
@@ -392,6 +399,10 @@ ul { list-style: none; }
 @container (min-width: 490px) { .letters { --n: 3; } }
 @container (min-width: 650px) { .letters { --n: 4; } }
 @container (min-width: 800px) { .letters { --n: 5; } }
+@media (max-width: 600px) {
+  .letters { --n: 2 !important; }
+  .letters-wrap { padding-left: 12px; padding-right: 12px; }
+}
 .letters li {
   width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
   text-align: center;
@@ -646,9 +657,12 @@ ul { list-style: none; }
   max-height: calc(100dvh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+.about-clip::-webkit-scrollbar { display: none; }
 .about-text {
   padding: 22px;                   /* одинаковый отступ со всех сторон */
   overflow-wrap: anywhere;         /* длинные слова и ссылки не вылезают за край */

@@ -241,7 +241,6 @@
         void gate.offsetWidth;                       // перезапуск анимации тряски
         gate.classList.add("shake");
         pass.value = "";
-        pass.focus({ preventScroll: true });
       }
 
       gate.addEventListener("submit", async e => {
@@ -273,7 +272,6 @@
         say("нужен https", false);
       } else {
         loadVault().catch(() => {});                 // качаем файл заранее
-        pass.focus({ preventScroll: true });
       }
 
       /* ---------- «Что за проект?»: окно раскрывается, текст печатается ---------- */
@@ -379,7 +377,6 @@
         gate.hidden = false;
         about.hidden = false;
         say(msg, false);
-        pass.focus({ preventScroll: true });
       }
       if (window.crypto && crypto.subtle && readSaved()) {
         gate.hidden = true;                          // не показываем окно входа, пока проверяем ключ
@@ -406,7 +403,6 @@
         }, 700);
       });
       remember.addEventListener("click", () => {
-        if (keepLift) pass.focus({ preventScroll: true });   // фокус возвращаем в поле, блок остаётся поднятым
         keepLift = false;
         clearTimeout(keepTimer);
       });
