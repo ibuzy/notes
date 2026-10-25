@@ -24,7 +24,7 @@
 
 /* на телефоне кнопки управления ещё компактнее */
 @media (max-width: 600px) {
-  .font-license { font-size: 5px; }
+  .font-license { font-size: 4px; }
   .remember { font-size: 11px; gap: .45em; white-space: nowrap; }
 }
 
@@ -103,7 +103,7 @@ input::selection { background: var(--ink); color: var(--paper); }
   z-index: 5;
   display: flex;
   flex-direction: column;
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1.4;
   color: var(--muted);
   opacity: .4;
