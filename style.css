@@ -823,3 +823,20 @@ a.ext:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
 /* полоска прокрутки справа скрыта везде на странице; листание колесом и пальцем работает */
 html, body { scrollbar-width: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { display: none; }
+
+/* На телефонах прокручивается сама страница, а не вложенный список заметок.
+   Это позволяет Яндекс Браузеру распознать собственный pull-to-refresh у верхней границы. */
+@media (max-width: 600px) {
+  .home {
+    height: auto;
+    min-height: 100dvh;
+  }
+  .letters-wrap {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow-y: visible;
+    overscroll-behavior-y: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
