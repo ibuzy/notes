@@ -381,19 +381,73 @@
 
       /* ---------- «Что за проект?»: окно раскрывается, текст печатается ---------- */
       const REPO = "https://github.com";             // сюда можно поставить ссылку на конкретный репозиторий
-      const ABOUT = [                                // части текста; у части с href получается ссылка
-        { t: "Тихий архив для ваших писем и заметок. Всё хранится онлайн только в зашифрованном виде: без кода доступа записи — лишь случайный набор символов, а расшифровываются они прямо в вашем браузере. Сам код никуда не отправляется и нигде не сохраняется: если отметить «запомнить меня», на вашем устройстве остаётся только ключ расшифровки, и он стирается кнопкой «выйти». Заметки можно красиво оформлять: " },
-        { t: "выделять главное", f: "v" },
-        { t: ", " },
-        { t: "подчёркивать", f: "u" },
-        { t: ", делать акценты " },
-        { t: "курсивом", f: "i" },
-        { t: " и " },
-        { t: "жирным шрифтом", f: "b" },
-        { t: ". Проект с " },
+      const ABOUT = [                                // части текста; у части с href получается ссылка, с f — оформление, с e — цветной пиксельный значок в начале абзаца (занимает 1 символ)
+        { t: "#", e: "note" },
+        { t: "Онлайн-хранилище для заметок. Проект с " },
         { t: "открытым исходным кодом", href: REPO },
-        { t: " — любой может убедиться, что внутри нет ничего лишнего. Поделиться доступом просто: достаточно передать код тому, кому доверяете. Спокойно, удобно и одинаково хорошо на телефоне и на компьютере." }
+        { t: ": вы можете развернуть его самостоятельно и полностью контролировать хостинг и содержимое сайта при соблюдении лицензии.\n\n" },
+        { t: "#", e: "key" },
+        { t: "Доступ к записям осуществляется по коду. Чтобы поделиться заметками, достаточно передать код тому, кому вы доверяете.\n\n" },
+        { t: "#", e: "lock" },
+        { t: "Все данные хранятся в сети только в зашифрованном виде. Без кода записи представляют собой случайный набор символов, а расшифровка происходит прямо в браузере. Код хранится в памяти браузера, пока активна сессия, и удаляется при выходе.\n\n" },
+        { t: "#", e: "pencil" },
+        { t: "Заметки поддерживают форматирование: " },
+        { t: "выделение главного", f: "v" },
+        { t: ", " },
+        { t: "подчёркивание", f: "u" },
+        { t: ", " },
+        { t: "курсив", f: "i" },
+        { t: " и " },
+        { t: "жирный шрифт", f: "b" },
+        { t: ". Понравившиеся записи можно добавлять в избранное" },
+        { t: ". Дизайн выполнен в космической тематике" },
+        { t: " и адаптирован под любые устройства.\n\n" },
+        { t: "#", e: "person" },
+        { t: "Сайт используется по назначению и является приватным. Если вы хотите разместить заметки на этом домене без собственного хоста — свяжитесь со мной.\n\n" },
+        { t: "#", e: "play" },
+        { t: "Для перехода в демонстрационный режим введите код доступа: " },
+        { t: "DEMO", f: "v" }
       ];
+
+      /* пиксельные значки в начале абзацев окна «что за проект?»: рисуются по сетке, как остальные значки сайта.
+         Каждая буква — цвет из PAL, «.» — пусто. Чтобы добавить новый, допишите его сюда и поставьте в ABOUT: { t: "#", e: "имя" } */
+      const PAL = { y: "#f2c230", o: "#d9831a", r: "#e5484d", R: "#a52a2e", b: "#4c8dff", B: "#2457c5",
+                    g: "#3fb950", G: "#237a33", s: "#9aa0a6", S: "#5f6368", n: "#ecd09a", k: "#8b5a2b", c: "#35c0d8",
+                    h: "#d9a441", d: "#6b4423", u: "#c0661a", a: "#e0a030", l: "#f2d98a", p: "#f0c9a0" };
+      const PIX = {
+        note:   [".kkkkkkk.", ".knnnnnk.", ".knkkknk.", ".knnnnnk.", ".knkkknk.", ".knnnnnk.", ".knkknnk.", ".knnnnnk.", ".kkkkkkk."],
+        key:    [".ddd.....", "dhhhd....", "dhhhhhhhh", "dhhhd.d.d", ".ddd....."],
+        lock:   ["..sssss..", ".ss...ss.", ".ss...ss.", "ddddddddd", "duuuuuuud", "duuuduuud", "duuuduuud", "duuuuuuud", "ddddddddd"],
+        pencil: ["......rr", ".....rrr", "....sss.", "...yyy..", "..yyy...", ".nnn....", "nnn.....", "k......."],
+        person: ["..kkkkk..", "..kkkkk..", "..kpppk..", "..kpppk..", "...ppp...", ".aaaaaaa.", "aaaaaaaaa", "aaaaaaaaa", "aaaaaaaaa"],
+        play:   ["ll.......", "llll.....", "llllll...", "llllllll.", "lllllllll", "hhhhhhhh.", "hhhhhh...", "hhhh.....", "hh......."]
+      };
+
+      function pixIcon(name) {
+        const rows = PIX[name], h = rows.length, w = rows[0].length;
+        const NS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        svg.setAttribute("shape-rendering", "crispEdges");
+        svg.setAttribute("aria-hidden", "true");
+        const paths = {};                              // цвет → путь из горизонтальных отрезков
+        rows.forEach((r, y) => {
+          for (const m of r.matchAll(/([^.])\1*/g)) paths[m[1]] = (paths[m[1]] || "") + `M${m.index} ${y}h${m[0].length}v1h-${m[0].length}z`;
+        });
+        for (const c in paths) {
+          const p = document.createElementNS(NS, "path");
+          p.setAttribute("d", paths[c]);
+          p.setAttribute("fill", PAL[c]);
+          svg.append(p);
+        }
+        const el = document.createElement("span");
+        el.className = "px-e";
+        el.style.setProperty("--w", w);
+        el.style.setProperty("--h", h);
+        el.setAttribute("aria-hidden", "true");
+        el.append(svg);
+        return el;
+      }
       const ABOUT_LEN = ABOUT.reduce((s, p) => s + p.t.length, 0);
       const about = $("about"), aboutBtn = $("about-btn"), aboutText = $("about-text");
       let typeRaf = 0;
@@ -415,7 +469,8 @@
           const a = Math.max(from, pos), b = Math.min(to, pos + p.t.length);
           if (b > a) {
             const s = p.t.slice(a - pos, b - pos);
-            if (p.href) parent.append(extLink(p.href, s));
+            if (p.e) parent.append(pixIcon(p.e));
+            else if (p.href) parent.append(extLink(p.href, s));
             else if (p.f) {
               const [tag, cls] = RICH[p.f];          // те же стили, что и в письмах
               const el = document.createElement(tag);
@@ -1132,17 +1187,17 @@
           const k = target / Math.max(c.w, c.h);
           const pw = c.w * k, ph = c.h * k;
           const m = Math.min(32, W * .05);
-          /* из 30 случайных мест берём то, что дальше всего от остальных созвездий */
+          /* из 80 случайных мест берём то, где зазор до ближайшего созвездия, планеты или чёрной дыры больше всего;
+             новое созвездие выплывает не вплотную к нижнему краю, а с запасом, чтобы между ними по высоте тоже оставалось место */
           let bx = m, by = H, best = -1;
-          for (let t = 0; t < 30; t++) {
+          for (let t = 0; t < 80; t++) {
             const x = rnd(m, Math.max(m, W - pw - m));
-            const y = anywhere ? rnd(H * .05, Math.max(H * .06, H * .85 - ph * .5)) : H;
-            let dmin = Infinity;
-            for (const o of sky.concat(planets, holes)) {            // и от созвездий, и от планет, и от чёрных дыр
-              const dx = (x + pw / 2) - (o.x + o.pw / 2), dy = (y + ph / 2) - (o.y + o.ph / 2);
-              dmin = Math.min(dmin, Math.hypot(dx, dy * .8));
-            }
-            if (dmin > best) { best = dmin; bx = x; by = y; }
+            const y = anywhere ? rnd(H * .05, Math.max(H * .06, H * .85 - ph * .5)) : H + rnd(60, 300);
+            const r = { x0: x - 14, y0: y, x1: x + pw + 14, y1: y + ph + 14 };
+            let gap = Infinity;
+            for (const o of sky) gap = Math.min(gap, rectGap(r, skyRect(o)) * .8);   // чужие созвездия считаем «ближе», чтобы держаться от них дальше
+            for (const o of planets.concat(holes)) gap = Math.min(gap, rectGap(r, planetRect(o)));
+            if (gap > best) { best = gap; bx = x; by = y; }
           }
           return {
             c, k, pw, ph, age: 0,
@@ -1296,7 +1351,7 @@
               v: 12                                            // у всех планет одна скорость: расстояния между ними не меняются
             };
             const r = planetRect(q);
-            const okSky = sky.every(s => rectGap(r, skyRect(s)) > 80);
+            const okSky = sky.every(s => rectGap(r, skyRect(s)) > 130);
             const okPl = planets.every(o => rectGap(r, planetRect(o)) > 110);
             const okH = holes.every(o => rectGap(r, planetRect(o)) > 110);
             if (okSky && okPl && okH) return q;
@@ -1400,7 +1455,7 @@
               rot: rnd(-.4, .4), dop: Math.random() < .5 ? 1 : -1, spin: Math.random() < .5 ? 1 : -1
             };
             const r = planetRect(q);
-            if (!sky.every(s => rectGap(r, skyRect(s)) > 90)) continue;
+            if (!sky.every(s => rectGap(r, skyRect(s)) > 140)) continue;
             if (!planets.every(o => rectGap(r, planetRect(o)) > 110)) continue;
             if (!holes.every(o => rectGap(r, planetRect(o)) > 220)) continue;
             if (!stars.every(o => Math.hypot(o.x - (q.x + pw / 2), o.y - (q.y + ph / 2)) > 170 + pw / 2)) continue;

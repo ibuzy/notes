@@ -798,6 +798,7 @@ body.kb .about > * { pointer-events: none; }
 .about-text {
   padding: 22px;                   /* одинаковый отступ со всех сторон */
   overflow-wrap: anywhere;         /* длинные слова и ссылки не вылезают за край */
+  white-space: pre-line;           /* пустая строка в тексте = новый абзац */
   font-size: 15px;
   line-height: 1.7;
   text-align: justify;
@@ -805,6 +806,17 @@ body.kb .about > * { pointer-events: none; }
   hyphens: auto;
 }
 .about-text .ghost { visibility: hidden; }   /* ещё не напечатанная часть держит высоту окна */
+
+/* цветные пиксельные значки в начале абзацев: 1 пиксель сетки = .1em, цвета заданы в скрипте */
+.px-e {
+  display: inline-block;
+  width: calc(var(--w) * .1em);
+  height: calc(var(--h) * .1em);
+  margin: 0 .55em 0 0;
+  vertical-align: -.02em;
+  text-align: left;
+}
+.px-e svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
 /* ---------- Просмотр письма ---------- */
 .viewer {
