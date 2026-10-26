@@ -9,6 +9,7 @@
   --ink: #111;
   --paper: #fff;
   --muted: #777;
+  --gold: #d49a00;
   --ease: cubic-bezier(.65, 0, .35, 1);
   --out: cubic-bezier(.22, 1, .36, 1);   /* плавное появление: быстрый старт, мягкая остановка */
   --tb: 36px;                       /* размер кнопок управления справа сверху */
@@ -21,6 +22,7 @@
   --ink: #f2f2f2;
   --paper: #0a0a0a;
   --muted: #8a8a8a;
+  --gold: #f2c230;
   color-scheme: dark;
 }
 
@@ -122,7 +124,7 @@ input::selection { background: var(--ink); color: var(--paper); }
   border: 0;
   color: var(--ink);
   cursor: pointer;
-  transition: opacity .3s;
+  transition: opacity .2s;
 }
 .gear-toggle { z-index: 21; }            /* шестерёнка всегда поверх выезжающих кнопок */
 
@@ -251,7 +253,7 @@ body.peek > :not(#px):not(#peek):not(#boot) {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: transform .4s var(--ease), opacity .35s var(--ease), visibility 0s .4s, top .35s var(--ease), right .35s var(--ease);
+  transition: transform .26s var(--ease), opacity .22s var(--ease), visibility 0s .26s, top .22s var(--ease), right .22s var(--ease);
 }
 .theme-toggle  { --cx: 0; --ry: 1; --d: 1; }
 .motion-toggle { --cx: 0; --ry: 2; --d: 2; }
@@ -268,7 +270,7 @@ body.menu .theme-toggle, body.menu .motion-toggle, body.menu .sound-toggle, body
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transition: transform .4s var(--ease) calc(var(--d) * .05s), opacity .35s var(--ease) calc(var(--d) * .05s), visibility 0s, top .35s var(--ease), right .35s var(--ease);
+  transition: transform .26s var(--ease) calc(var(--d) * .03s), opacity .22s var(--ease) calc(var(--d) * .03s), visibility 0s, top .22s var(--ease), right .22s var(--ease);
 }
 body.peek .peek-toggle {
   top: var(--t0);
@@ -278,7 +280,7 @@ body.peek .peek-toggle {
   opacity: .3;
   visibility: visible;
   pointer-events: auto;
-  transition: top .35s var(--ease), right .35s var(--ease), opacity .4s var(--ease), visibility 0s, transform .35s var(--ease);
+  transition: top .22s var(--ease), right .22s var(--ease), opacity .26s var(--ease), visibility 0s, transform .22s var(--ease);
 }
 
 @media (hover: hover) {
@@ -305,7 +307,7 @@ body.peek .peek-toggle {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: transform .35s var(--ease), opacity .35s var(--ease), visibility 0s .2s, top .3s var(--ease), right .3s var(--ease);
+    transition: transform .22s var(--ease), opacity .22s var(--ease), visibility 0s .13s, top .19s var(--ease), right .19s var(--ease);
   }
   .motion-toggle { --cx: 1; --ry: 0; --d: 1; }
   .theme-toggle  { --cx: 2; --ry: 0; --d: 2; }
@@ -316,7 +318,7 @@ body.peek .peek-toggle {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
-    transition: transform .35s var(--ease) calc(var(--d) * .04s), opacity .35s var(--ease) calc(var(--d) * .04s), visibility 0s, top .3s var(--ease), right .3s var(--ease);
+    transition: transform .22s var(--ease) calc(var(--d) * .025s), opacity .22s var(--ease) calc(var(--d) * .025s), visibility 0s, top .19s var(--ease), right .19s var(--ease);
   }
   body.peek .peek-toggle {
     top: var(--t0);
@@ -326,7 +328,7 @@ body.peek .peek-toggle {
     opacity: .3;
     visibility: visible;
     pointer-events: auto;
-    transition: top .3s var(--ease), right .3s var(--ease), opacity .3s, visibility 0s, transform .3s var(--ease);
+    transition: top .19s var(--ease), right .19s var(--ease), opacity .19s, visibility 0s, transform .19s var(--ease);
   }
 }
 
@@ -347,7 +349,7 @@ body.peek .peek-toggle {
   width: var(--ti);
   height: var(--ti);
   fill: currentColor;
-  transition: opacity .4s var(--ease);
+  transition: opacity .25s var(--ease);
 }
 .theme-toggle .sun { opacity: 0; }
 :root[data-theme="dark"] .theme-toggle .sun  { opacity: 1; }
@@ -541,6 +543,10 @@ ul { list-style: none; }
   color: var(--muted);
   max-width: calc(34em + 2 * var(--pad));
 }
+/* на компьютере подпись помещается в одну строку; на телефоне переносится */
+@media (min-width: 601px) {
+  .note { max-width: none; white-space: nowrap; padding: 0 12px; }
+}
 
 
 /* появление при загрузке: ступенчатое, как в пиксельной графике */
@@ -724,7 +730,7 @@ ul { list-style: none; }
   transition: color .3s;
 }
 .info-btn svg { width: 6px; height: 14px; fill: currentColor; }
-.info-btn:hover,
+@media (hover: hover) { .info-btn:hover { color: var(--ink); } }
 .info-btn:focus-visible,
 .info-btn[aria-expanded="true"] { color: var(--ink); }
 .info-btn:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
@@ -789,6 +795,8 @@ ul { list-style: none; }
   opacity: 1;
   transition: opacity .4s var(--ease), visibility 0s;
 }
+/* закрытый просмотрщик (пока он ещё гаснет и после этого) не ловит касания: иначе невидимый слой перехватывал бы прокрутку главной страницы */
+.viewer:not(.open) { pointer-events: none; }
 
 /* размытие и затухание снизу экрана при чтении: текст плавно проявляется */
 .fade {
@@ -867,6 +875,75 @@ body.reading #px { filter: blur(1px); }
   font-size: clamp(26px, 4.5vw, 40px);
   margin-bottom: .25em;
 }
+/* ---------- Избранное: значок заметки (закладка) ----------
+   В открытой заметке стоит справа от названия; по нажатию заливается жёлтым, подпрыгивает и разлетается пикселями.
+   В списке избранные заметки помечены таким же маленьким жёлтым значком у верхнего правого угла названия.
+   Значок в заметке нарисован на сетке 19×19 (клетка мельче, чем у остальных кнопок 13×13, иначе он выглядел грубее);
+   метка в списке — отдельная фигура на сетке 13×13, на 13px мельче сетка не читается. */
+.fav-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
+  width: .8em;
+  height: .8em;
+  margin: -.1em 0 0 .45em;
+  padding: 0;
+  font-size: inherit;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .4s var(--ease);
+}
+.fav-btn::before { content: ""; position: absolute; inset: -10px; }      /* зона нажатия больше значка */
+.fav-btn svg { width: 100%; height: 100%; overflow: visible; }
+.fav-btn .frame, .fav-mark .frame { fill: currentColor; }
+.fav-btn .frame { stroke: currentColor; stroke-width: .7px; stroke-linejoin: miter; }   /* утолщаем контур значка в заметке */
+.fav-btn .fill, .fav-mark .fill {
+  fill: var(--gold);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: scaleY(0);
+  transition: transform .5s var(--ease), opacity .35s var(--ease);
+}
+.fav-btn.on { color: var(--gold); }
+.fav-btn.on .fill, .fav-mark .fill { opacity: 1; transform: none; }
+@media (hover: hover) { .fav-btn:not(.on):hover { color: var(--ink); } }
+.fav-btn:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+
+/* анимация нажатия: значок подпрыгивает, вокруг разлетаются жёлтые пиксели (только когда заметка добавляется) */
+.fav-btn::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  background: var(--gold);
+  box-shadow: -16px -12px 0 var(--gold), 16px -12px 0 var(--gold), -19px 7px 0 var(--gold), 19px 7px 0 var(--gold), 0 -20px 0 var(--gold), 0 19px 0 var(--gold);
+  opacity: 0;
+  pointer-events: none;
+}
+.fav-btn.pop svg { animation: favpop .55s var(--out); }
+.fav-btn.spark::after { animation: favspark .7s var(--out); }
+@keyframes favpop { 0% { transform: scale(1); } 35% { transform: scale(1.4) rotate(-8deg); } 100% { transform: scale(1); } }
+@keyframes favspark { 0% { opacity: 1; transform: scale(.2); } 60% { opacity: 1; } 100% { opacity: 0; transform: scale(1.4); } }
+
+/* значок избранной заметки в списке: маленький, жёлтый, у верхнего правого угла названия, чуть заходит на текст */
+.fav-mark {
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  width: 13px;
+  height: 13px;
+  color: var(--gold);
+  pointer-events: none;
+}
+.fav-mark svg { display: block; width: 100%; height: 100%; }
+
 .date {
   color: var(--muted);
   font-size: 15px;

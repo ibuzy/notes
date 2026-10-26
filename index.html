@@ -15,6 +15,10 @@
     и сайт снова попросит код.
   • «что за проект?» — раскрывающееся окно с описанием: текст печатается, в нём есть оформление
     и ссылка на открытый исходный код. Закрывается кнопкой, Esc или свайпом вниз.
+  • Избранное: в открытой заметке справа от названия стоит значок-закладка (лента с V-вырезом снизу, нарисована на более мелкой пиксельной сетке 19×19, чтобы не казаться грубее остальных кнопок); по нажатию он заливается жёлтым, подпрыгивает
+    и разлетается пикселями. В списке избранные заметки помечены маленьким жёлтым значком у верхнего правого угла названия.
+    Избранное хранится только на устройстве (с галочкой «запомнить меня» — в localStorage, ключ "fav", без неё — в sessionStorage)
+    и стирается кнопкой «выйти».
   • Письма: <v>выделение</v>, <u>подчёркивание</u>, <i>курсив</i>, <b>жирный</b>
     и ссылки <a href="https://...">текст</a> (только http/https).
   • Лицензии: кнопка «L» слева снизу (на одной линии с кнопкой выхода). По нажатию вправо, на одном уровне,
@@ -61,7 +65,7 @@
     html.booting { overflow: hidden; }
   </style>
   <noscript><style>#boot { display: none; }</style></noscript>
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -175,13 +179,13 @@
       <div class="letters-wrap" id="letters-wrap"><ul class="letters" id="letters"></ul></div>
       <div class="sbar" id="sbar" aria-hidden="true"><i id="sbar-thumb"></i></div>
     </div>
-    <p class="note">все заметки зашифрованы. при закрытии сессии доступ будет закрыт</p>
+    <p class="note">все заметки зашифрованы. при закрытии сессии избранное будет удалено</p>
   </main>
 
   <div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-hidden="true">
     <article class="sheet">
       <button class="link back" id="back" type="button">← назад</button>
-      <h2 id="letter-title"></h2>
+      <h2><span id="letter-title"></span><button class="fav-btn" id="fav-btn" type="button" aria-label="В избранное" aria-pressed="false"><svg viewBox="0 0 19 19" shape-rendering="crispEdges" aria-hidden="true"><path class="fill" d="M7 2h5v1h-5zM5 3h9v2h-9zM4 5h11v6h-11zM4 11h5v1h-5zM10 11h5v1h-5zM4 12h4v1h-4zM11 12h4v1h-4zM4 13h3v1h-3zM12 13h3v1h-3zM4 14h2v1h-2zM13 14h2v1h-2z"/><path class="frame" d="M5 2h9v1h-9zM4 3h2v1h-2zM13 3h2v1h-2zM4 4h1v10h-1zM14 4h1v10h-1zM9 10h1v1h-1zM8 11h3v1h-3zM7 12h2v1h-2zM10 12h2v1h-2zM6 13h2v1h-2zM11 13h2v1h-2zM4 14h3v1h-3zM12 14h3v1h-3zM4 15h1v1h-1zM14 15h1v1h-1z"/></svg></button></h2>
       <p class="date" id="letter-date"></p>
       <div class="body" id="letter-body"></div>
     </article>
@@ -232,8 +236,58 @@
       const writeSaved = raw => { try { localStorage.setItem(KEY_NAME, btoa(String.fromCharCode(...raw))); } catch (e) {} };
       const clearSaved = () => { try { localStorage.removeItem(KEY_NAME); } catch (e) {} };
 
+      /* ---------- Избранное ----------
+         Хранится только на этом устройстве: с галочкой «запомнить меня» в localStorage, без неё — в sessionStorage.
+         Кнопка «выйти» стирает избранное вместе с ключом. */
+      const FAV_NAME = "fav";
+      const NOTE_SVG = '<svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true"><path class="frame" d="M3 1h7v1h-7zM2 2h9v7h-9zM2 9h4v1h-4zM7 9h4v1h-4zM2 10h3v1h-3zM8 10h3v1h-3zM2 11h1v1h-1zM10 11h1v1h-1z"/></svg>';
+      const favBtn = $("fav-btn");
+      let favs = new Set(), curIndex = -1;
+      const favKey = l => l.title + "\n" + (l.date || "");
+      const favStore = () => { try { return readSaved() ? localStorage : sessionStorage; } catch (e) { return null; } };
+      const loadFavs = () => {
+        favs = new Set();
+        try { const a = JSON.parse(favStore().getItem(FAV_NAME) || "[]"); if (Array.isArray(a)) a.forEach(k => favs.add(k)); } catch (e) {}
+      };
+      const saveFavs = () => { try { favStore().setItem(FAV_NAME, JSON.stringify([...favs])); } catch (e) {} };
+      const clearFavs = () => { favs = new Set(); try { localStorage.removeItem(FAV_NAME); sessionStorage.removeItem(FAV_NAME); } catch (e) {} };
+      const addMark = btn => {
+        const m = document.createElement("span");
+        m.className = "fav-mark";
+        m.setAttribute("aria-hidden", "true");
+        m.innerHTML = NOTE_SVG;
+        btn.appendChild(m);
+      };
+      const updateMark = i => {
+        const b = list.querySelector('[data-i="' + i + '"]');
+        if (!b || !letters[i]) return;
+        const m = b.querySelector(".fav-mark"), on = favs.has(favKey(letters[i]));
+        if (on && !m) addMark(b); else if (!on && m) m.remove();
+      };
+      const syncFav = () => {
+        const on = !!letters[curIndex] && favs.has(favKey(letters[curIndex]));
+        favBtn.classList.toggle("on", on);
+        favBtn.setAttribute("aria-pressed", on);
+        favBtn.setAttribute("aria-label", on ? "Убрать из избранного" : "В избранное");
+      };
+      favBtn.addEventListener("click", () => {
+        const l = letters[curIndex];
+        if (!l) return;
+        const k = favKey(l), on = !favs.has(k);
+        if (on) favs.add(k); else favs.delete(k);
+        saveFavs();
+        syncFav();
+        updateMark(curIndex);
+        favBtn.classList.remove("pop", "spark");
+        void favBtn.offsetWidth;                  // перезапуск анимации
+        favBtn.classList.add("pop");
+        if (on) favBtn.classList.add("spark");
+      });
+
+
       /* показать главную и кнопку выхода */
       function showHome() {
+        loadFavs();
         home.hidden = false;
         $("logout").hidden = false;
         document.body.classList.add("in");        // экран после входа
@@ -357,7 +411,8 @@
       function toggleAbout(open) {
         about.classList.toggle("open", open);
         aboutBtn.setAttribute("aria-expanded", open);
-        if (open) typeAbout(); else cancelAnimationFrame(typeRaf);
+        if (open) typeAbout();
+        else { cancelAnimationFrame(typeRaf); aboutBtn.blur(); }   // снимаем фокус, чтобы кнопка гасла на телефоне
       }
 
       /* на телефоне окно закрывается свайпом вниз */
@@ -463,7 +518,7 @@
         $("peek").setAttribute("aria-pressed", on);
         if (on && document.activeElement && document.activeElement !== $("peek")) document.activeElement.blur();   // убираем клавиатуру на телефоне
       });
-      $("logout").addEventListener("click", () => { clearSaved(); location.reload(); });
+      $("logout").addEventListener("click", () => { clearSaved(); clearFavs(); location.reload(); });
 
       /* ---------- Список писем на главной ---------- */
       function renderList() {
@@ -478,6 +533,7 @@
           b.type = "button";
           b.textContent = l.title;
           b.dataset.i = i;
+          if (favs.has(favKey(l))) addMark(b);
           li.style.setProperty("--i", i);
           li.appendChild(b);
           list.appendChild(li);
@@ -608,7 +664,12 @@
       const brand = document.querySelector(".brand");
       const ctrls = [...document.querySelectorAll(".theme-toggle, .motion-toggle, .sound-toggle, .logout-toggle")];
       const phone = matchMedia("(max-width: 600px)");
+      const resetAway = () => [brand, ...ctrls].forEach(el => { el.style.transform = el.style.opacity = el.style.pointerEvents = ""; });
       function scrollAway() {
+        /* двигаем логотип и кнопки только пока заметка открыта. После закрытия просмотрщик ещё какое-то время
+           остаётся в странице и может менять scrollTop (прячется адресная строка на телефоне, подрезается прокрутка) —
+           раньше из-за этого логотип улетал вверх уже на главной странице */
+        if (!viewer.classList.contains("open")) { resetAway(); return; }
         const y = viewer.scrollTop;
         const move = (el, on) => {
           el.style.transform = on && y ? `translateY(${-y}px)` : "";
@@ -658,6 +719,9 @@
         const l = letters[index];
         if (!l) return;
         lastTrigger = trigger;
+        curIndex = index;
+        favBtn.classList.remove("pop", "spark");
+        syncFav();
 
         titleEl.textContent = l.title;
         dateEl.textContent = l.date || "";
@@ -688,7 +752,8 @@
         viewer.classList.remove("open");
         viewer.setAttribute("aria-hidden", "true");
         document.body.classList.remove("reading");
-        brand.style.transform = brand.style.opacity = brand.style.pointerEvents = "";
+        resetAway();                              // логотип и кнопки (на телефоне) возвращаются на место, а не только логотип
+        setTimeout(() => { if (!viewer.classList.contains("open")) viewer.scrollTop = 0; }, 1050);   // когда окно уже скрыто, сбрасываем старую прокрутку
         if (lastTrigger) lastTrigger.focus({ preventScroll: true });
         if (!fromPopState && history.state && history.state.letter !== undefined) history.back();
       }
