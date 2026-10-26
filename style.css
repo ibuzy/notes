@@ -177,6 +177,7 @@ body.lic-open .lic-list {
 .lic-item:hover, .lic-item:focus-visible, .lic-item:active { color: var(--ink); }
 .lic-item:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
 body.reading .lic-toggle, body.reading .lic-list { opacity: 0; pointer-events: none; }
+body.reading .logout-toggle { opacity: 0; pointer-events: none; }
 
 /* подпись «лицензии» у кнопки: справа сверху от значка (слева места нет); пока список открыт, скрыта */
 .lic-toggle::after {
