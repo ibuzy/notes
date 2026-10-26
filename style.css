@@ -564,6 +564,12 @@ ul { list-style: none; }
 .letters li { animation-delay: calc(.15s + var(--i, 0) * var(--step, .06s)); }
 .count { animation-delay: .1s; }
 .note { animation-delay: .5s; }
+/* на телефоне: подпись «все заметки зашифрованы…» не показывается, а блок заметок поднят выше (зазор под счётчиком убран;
+   сверху в самом блоке и так есть мягкий отступ 20px) */
+@media (max-width: 600px) {
+  .note { display: none; }
+  .count { margin-bottom: 0; }
+}
 
 @keyframes blink { 50% { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: translateY(8px); } }
