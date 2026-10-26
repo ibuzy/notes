@@ -599,7 +599,7 @@ ul { list-style: none; }
 .field input {
   display: block;
   width: 100%;
-  padding: 10px 2px;
+  padding: 10px 30px;                /* по бокам место под глаз: код остаётся по центру */
   background: none;
   border: 0;
   border-bottom: 1px solid var(--muted);
@@ -611,6 +611,31 @@ ul { list-style: none; }
   letter-spacing: .25em;
   text-align: center;
 }
+/* глаз справа в поле кода: по умолчанию обычный (код скрыт), при нажатии — перечёркнутый (код виден), как у «пустоты» */
+.pass-eye {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .25s var(--ease);
+}
+.pass-eye::before { content: ""; position: absolute; inset: -6px -4px; }      /* зона нажатия больше значка */
+.pass-eye svg { grid-area: 1 / 1; width: 16px; height: 16px; fill: currentColor; }
+.pass-eye path { transition: opacity .25s var(--ease); }
+.pass-eye .slash { opacity: 0; }
+.pass-eye.on { color: var(--ink); }
+.pass-eye.on .slash { opacity: 1; }
+@media (hover: hover) { .pass-eye:hover { color: var(--ink); } }
+.pass-eye:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+
 /* линия под полем прорисовывается при фокусе, как у ссылок */
 .field::after {
   content: "";

@@ -147,6 +147,12 @@
       <label class="gate-title" for="gate-pass">код доступа</label>
       <div class="field">
         <input id="gate-pass" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" maxlength="256" required aria-describedby="gate-msg">
+        <button class="pass-eye" id="gate-eye" type="button" aria-label="Показать код" aria-pressed="false">
+          <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+            <path class="eye" d="M4 2h5v1h-5zM2 3h9v1h-9zM1 4h3v1h-3zM9 4h3v1h-3zM0 5h2v1h-2zM5 5h3v1h-3zM11 5h2v1h-2zM0 6h2v1h-2zM5 6h3v1h-3zM11 6h2v1h-2zM0 7h2v1h-2zM5 7h3v1h-3zM11 7h2v1h-2zM1 8h3v1h-3zM9 8h3v1h-3zM2 9h9v1h-9zM4 10h5v1h-5z"/>
+            <path class="slash" d="M0 12h2v1h-2zM1 11h2v1h-2zM2 10h2v1h-2zM3 9h2v1h-2zM4 8h2v1h-2zM5 7h2v1h-2zM6 6h2v1h-2zM7 5h2v1h-2zM8 4h2v1h-2zM9 3h2v1h-2zM10 2h2v1h-2zM11 1h2v1h-2zM12 0h1v1h-1z"/>
+          </svg>
+        </button>
       </div>
       <div class="gate-row">
         <p class="gate-msg" id="gate-msg" role="status" aria-live="polite"><span id="gate-text"></span><span class="loader" id="gate-loader" hidden></span></p>
@@ -212,6 +218,17 @@
       const gate = $("gate"), pass = $("gate-pass"), gateText = $("gate-text"), loader = $("gate-loader");
       const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
       let vault = null, busy = false;
+
+      /* глаз в поле кода: показать / скрыть код. Нигде не сохраняется, после перезагрузки код снова скрыт */
+      const eye = $("gate-eye");
+      const setEye = show => {
+        pass.type = show ? "text" : "password";
+        eye.classList.toggle("on", show);
+        eye.setAttribute("aria-pressed", show);
+        eye.setAttribute("aria-label", show ? "Скрыть код" : "Показать код");
+      };
+      eye.addEventListener("mousedown", e => e.preventDefault());      // фокус остаётся в поле, клавиатура на телефоне не закрывается
+      eye.addEventListener("click", () => { setEye(pass.type === "password"); pass.focus({ preventScroll: true }); });
 
       const loadVault = () => vault || (vault = fetch("letters.enc", { cache: "no-store" })
         .then(r => { if (!r.ok) throw new Error("http"); return r.json(); })
@@ -324,6 +341,7 @@
         else clearSaved();
 
         pass.value = "";
+        setEye(false);
         say("", false);
         gate.classList.add("done");
         about.classList.add("done");
