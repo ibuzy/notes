@@ -843,7 +843,7 @@
       /* ---------- Логотип уезжает вверх и гаснет, пока листается письмо ----------
          На телефоне вместе с ним уезжают и кнопки управления (тема, анимации, звук, выйти). */
       const brand = document.querySelector(".brand");
-      const ctrls = [...document.querySelectorAll(".theme-toggle, .motion-toggle, .sound-toggle, .logout-toggle")];
+      const ctrls = [...document.querySelectorAll(".theme-toggle, .motion-toggle, .sound-toggle, .logout-toggle, .gear-toggle")];
       const phone = matchMedia("(max-width: 600px)");
       const resetAway = () => [brand, ...ctrls].forEach(el => { el.style.transform = el.style.opacity = el.style.pointerEvents = ""; });
       function scrollAway() {

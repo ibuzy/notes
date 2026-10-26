@@ -178,7 +178,7 @@ body.lic-open .lic-list {
 .lic-item:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
 @media (max-width: 700px) {
   body.reading .lic-toggle, body.reading .lic-list { opacity: 0; pointer-events: none; }
-  body.reading .logout-toggle { opacity: 0; pointer-events: none; }
+  body.reading .logout-toggle { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
 }
 
 /* подпись «лицензии» у кнопки: справа сверху от значка (слева места нет); пока список открыт, скрыта */
@@ -916,6 +916,7 @@ body.reading .fade::after { opacity: 1; }
 /* пока письмо открыто, фон (пиксели, созвездия, планеты) слегка размыт */
 #px { transition: filter .5s var(--ease); }
 body.reading #px { filter: blur(1px); }
+body.peek #px { filter: none !important; }
 
 /* то же сверху: текст плавно уходит в размытие у верхнего края, высота полосы как у нижней */
 .fade-top {
