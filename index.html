@@ -649,14 +649,50 @@
           const b = document.createElement("button");
           b.className = "link";
           b.type = "button";
-          b.textContent = l.title;
+          const t = document.createElement("span");       // название в одну строку: не помещается — ставится «…»
+          t.className = "t";
+          t.textContent = t.dataset.full = l.title;
+          b.appendChild(t);
+          b.title = l.title;                              // полное название во всплывающей подсказке
           b.dataset.i = i;
           if (favs.has(favKey(l))) addMark(b);
           li.style.setProperty("--i", i);
           li.appendChild(b);
           list.appendChild(li);
         });
+        requestAnimationFrame(fitTitles);
       }
+
+      /* Названия в одну строку. Если название шире ячейки, оно обрезается по символам и в конце ставится «…»;
+         пробелы перед «…» не оставляются (обрезанная часть очищается от пробелов в конце). Пробелы при подсчёте учитываются.
+         Ширина меряется через canvas, поэтому число символов подбирается под шрифт и размер экрана на каждом устройстве. */
+      const measureCtx = document.createElement("canvas").getContext("2d");
+      function fitTitles() {
+        const spans = list.querySelectorAll(".link .t");
+        if (!spans.length) return;
+        const first = spans[0], cs = getComputedStyle(first);
+        measureCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        if ("letterSpacing" in measureCtx) measureCtx.letterSpacing = cs.letterSpacing === "normal" ? "0px" : cs.letterSpacing;
+        const w = t => measureCtx.measureText(t).width;
+        spans.forEach(span => {
+          const avail = span.closest("li").clientWidth - 1;       // ширина ячейки (кнопка не шире неё)
+          const full = span.dataset.full;
+          if (avail <= 0) return;                                  // список скрыт: посчитаем, когда появится
+          if (w(full) <= avail) { span.textContent = full; return; }
+          const chars = Array.from(full);
+          let lo = 0, hi = chars.length - 1;                       // наибольшее число символов, при котором «текст…» помещается
+          while (lo < hi) {
+            const mid = (lo + hi + 1) >> 1;
+            if (w(chars.slice(0, mid).join("").trimEnd() + "…") <= avail) lo = mid; else hi = mid - 1;
+          }
+          span.textContent = chars.slice(0, lo).join("").trimEnd() + "…";
+        });
+      }
+      let fitRaf = 0;
+      const refit = () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fitTitles); };
+      if (window.ResizeObserver) new ResizeObserver(refit).observe(list);
+      addEventListener("resize", refit);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(refit);
       /* тонкая полоска прокрутки справа от блока заметок: видна, только если заметки не помещаются */
       const listWrap = $("letters-wrap"), sbar = $("sbar"), thumb = $("sbar-thumb");
       const updateBar = () => {
@@ -1183,8 +1219,8 @@
         }
         const sky = [];
         const clamp01 = v => Math.max(0, Math.min(1, v));
-        /* подписи созвездий и планет: самый мелкий читаемый размер, на телефоне ещё мельче */
-        const labelFont = () => `${Math.round((W < 600 ? 7 : 8) * D)}px ArchiveFont, Georgia, serif`;
+        /* подписи созвездий, планет и чёрных дыр: компактные, на телефоне чуть мельче (размер в пикселях: телефон / компьютер) */
+        const labelFont = () => `${Math.round((W < 600 ? 8 : 9) * D)}px ArchiveFont, Georgia, serif`;
 
         function spawnSky(anywhere) {
           const used = new Set(sky.map(q => q.c));

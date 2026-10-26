@@ -515,7 +515,13 @@ ul { list-style: none; }
   max-width: 100%;
   text-align: center;
   font-size: clamp(20px, 2.6vw, 30px);
-  overflow-wrap: anywhere;
+}
+/* название всегда в одну строку; что не влезло в ширину ячейки, заменяется на «…» (число символов подбирается по ширине экрана) */
+.letters .link .t {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 /* пиксельная стрелка слева от письма */
 .letters .link::before {
