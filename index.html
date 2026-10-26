@@ -22,6 +22,7 @@
     и стирается кнопкой «выйти».
   • Письма: <v>выделение</v>, <u>подчёркивание</u>, <i>курсив</i>, <b>жирный</b>
     и ссылки <a href="https://...">текст</a> (только http/https).
+  • Счётчик «заметок: N»: в той же строке, что и сортировка, слева, по левой границе кнопки заметки в самом левом столбце (на телефоне тоже).
   • Сортировка: справа над блоком заметок кнопка «сортировка» (на телефоне только значок ⇅). Меню в стиле «что за проект?»:
     по дате добавления (порядок в letters.enc), по алфавиту, по избранным (неактивна, пока избранных нет).
     Текущий пункт отмечен полоской слева; выбор хранится в localStorage (ключ "sort").
@@ -94,7 +95,7 @@
     html.booting { overflow: hidden; }
   </style>
   <noscript><style>#boot { display: none; }</style></noscript>
-  <link rel="stylesheet" href="style.css?v=30">
+  <link rel="stylesheet" href="style.css?v=31">
 </head>
 <body>
 
@@ -209,11 +210,11 @@
 
   <main class="home" id="home" hidden>
     <h1>архив заметок</h1>
-    <p class="count" id="count">количество заметок: 0</p>
     <!-- блок заметок + тонкая полоска прокрутки справа (полоска вне блока, чтобы её не гасила маска) -->
     <div class="letters-box">
-      <!-- сортировка: справа над блоком заметок; на телефоне только значок -->
+      <!-- строка над блоком заметок: слева счётчик «заметок: N» (по левому краю левого столбика), справа сортировка (по правому краю правого столбика) -->
       <div class="sort" id="sort">
+        <span class="count" id="count">заметок: 0</span>
         <button class="sort-btn" id="sort-btn" type="button" aria-label="Сортировка" aria-haspopup="true" aria-expanded="false" aria-controls="sort-menu">
           <span class="sort-label">сортировка</span>
           <svg viewBox="0 0 11 11" shape-rendering="crispEdges" aria-hidden="true">
@@ -680,7 +681,7 @@
       function renderList() {
         syncSortUi();
         list.textContent = "";
-        $("count").textContent = "количество заметок: " + letters.length;
+        $("count").textContent = "заметок: " + letters.length;
         /* заметки появляются по одной друг за другом; при большом количестве шаг короче, вся очередь укладывается примерно в секунду */
         list.style.setProperty("--step", Math.min(.06, .8 / Math.max(1, letters.length - 1)) + "s");
         sortedIndexes().forEach((i, k) => {
@@ -729,16 +730,23 @@
         });
         alignSort();
       }
-      /* кнопка сортировки стоит по правой границе самого правого столбика заметок (по краю самой широкой заметки в нём) */
+      /* кнопка сортировки стоит по правой границе самого правого столбика заметок (по краю самой широкой заметки в нём),
+         а счётчик «заметок: N» — по левой границе кнопки заметки в самом левом столбике */
       function alignSort() {
         const lis = [...list.children];
-        if (!lis.length) { sortEl.style.removeProperty("--sort-r"); return; }
-        const right = el => el.getBoundingClientRect().right;
+        if (!lis.length) { sortEl.style.removeProperty("--sort-r"); sortEl.style.removeProperty("--sort-l"); return; }
+        const right = el => el.getBoundingClientRect().right, left = el => el.getBoundingClientRect().left;
         const edge = Math.max(...lis.map(right));
         let r = 0;
         lis.forEach(li => { if (right(li) >= edge - 2) { const b = li.firstElementChild; if (b) r = Math.max(r, right(b)); } });
-        const off = sortEl.getBoundingClientRect().right - r;
+        const box = sortEl.getBoundingClientRect();
+        const off = box.right - r;
         if (r && off >= 0) sortEl.style.setProperty("--sort-r", off + "px");
+        const edgeL = Math.min(...lis.map(left));
+        let l = Infinity;
+        lis.forEach(li => { if (left(li) <= edgeL + 2) { const b = li.firstElementChild; if (b) l = Math.min(l, left(b)); } });
+        const offL = l - box.left;
+        if (isFinite(l) && offL >= 0) sortEl.style.setProperty("--sort-l", offL + "px");
       }
       let fitRaf = 0;
       const refit = () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fitTitles); };

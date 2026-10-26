@@ -446,14 +446,7 @@ h1 {
   padding: 0 var(--pad);
   margin-bottom: 6px;
 }
-/* мелкая серая подпись под заголовком, как «все заметки зашифрованы…» */
-.count {
-  flex: none;
-  padding: 0 var(--pad);
-  margin-bottom: clamp(20px, 4vh, 48px);
-  font-size: 12px;
-  color: var(--muted);
-}
+/* счётчик «заметок: N» стоит в строке сортировки слева (стили — в блоке «Сортировка заметок») */
 /* мигающий пиксельный курсор после заголовка */
 h1::after {
   content: "";
@@ -472,6 +465,7 @@ ul { list-style: none; }
    Боковые поля внутри блока равны --pad, поэтому содержимое по центру и симметрично. */
 .letters-box {
   position: relative;
+  margin-top: calc(18px + clamp(20px, 4vh, 48px));   /* прежний зазор под заголовком, когда здесь стоял счётчик */
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;
@@ -600,13 +594,11 @@ ul { list-style: none; }
 }
 /* шаг между заметками задаёт скрипт (--step): чем их больше, тем он короче, но каждая появляется своей очередью */
 .letters li { animation-delay: calc(.15s + var(--i, 0) * var(--step, .06s)); }
-.count { animation-delay: .1s; }
 .note { animation-delay: .5s; }
 /* на телефоне: подпись «все заметки зашифрованы…» не показывается, а блок заметок поднят выше (зазор под счётчиком убран;
    сверху в самом блоке и так есть мягкий отступ 20px) */
 @media (max-width: 600px) {
   .note { display: none; }
-  .count { display: none; }                         /* на телефоне счётчик заметок скрыт */
   h1 { font-size: 28px; margin-bottom: 0; }          /* заголовок чуть меньше */
   .letters-box { margin-top: 28px; }                 /* блок заметок и сортировка чуть ниже заголовка */
 }
@@ -1142,9 +1134,18 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { d
   z-index: 4;
   flex: none;
   display: flex;
-  justify-content: flex-end;
-  padding: 0 var(--sort-r, var(--pad));
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--sort-r, var(--pad)) 0 var(--sort-l, var(--pad));
   text-align: left;
+}
+/* счётчик заметок: слева в строке сортировки, на одном уровне с ней и в том же стиле */
+.count {
+  padding: 8px 0;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .sort-btn {
   display: inline-flex;
@@ -1245,7 +1246,8 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { d
 .sort-ico { flex: none; width: 15px; height: 15px; fill: currentColor; }
 
 @media (max-width: 600px) {
-  .sort { padding: 0 var(--sort-r, 12px); }
+  .sort { padding: 0 var(--sort-r, 12px) 0 var(--sort-l, 12px); }
+  .count { font-size: 12px; }
   .sort-btn { gap: 7px; padding: 8px 0 8px 8px; font-size: 12px; }   /* на телефоне подпись остаётся, но компактнее, чем на компьютере */
   .sort-btn svg { width: 12px; height: 12px; }
   .sort-menu { right: var(--sort-r, 12px); min-width: min(232px, calc(100vw - 24px)); }
