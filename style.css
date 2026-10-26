@@ -739,6 +739,10 @@ ul { list-style: none; }
 .about > * { pointer-events: auto; }
 .about.done { animation: out .4s var(--ease) forwards; }
 .about.done > * { pointer-events: none; }
+/* пока на телефоне открыта клавиатура, кнопка и окно описания плавно гаснут, а не подпрыгивают вместе с краем экрана */
+.about { transition: opacity .2s var(--ease); }
+body.kb .about { opacity: 0; }
+body.kb .about > * { pointer-events: none; }
 
 /* серая текстовая кнопка, без рамки и фона */
 .info-btn {

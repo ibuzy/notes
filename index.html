@@ -86,7 +86,7 @@
     html.booting { overflow: hidden; }
   </style>
   <noscript><style>#boot { display: none; }</style></noscript>
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 
@@ -498,6 +498,19 @@
       }
       /* подъём блока кода привязан к полю кода, а не к :focus-within: клик по «запомнить меня» (в том числе на телефоне,
          где метка забирает фокус себе) не должен его опускать. Опускается только когда фокус ушёл куда-то ещё. */
+      /* экранная клавиатура на телефоне: браузер уменьшает видимую область, и кнопка «что за проект?» (она закреплена у нижнего края)
+         подпрыгивала вместе с ней. Пока клавиатура открыта, кнопка плавно прячется (класс kb на body), потом так же возвращается на место. */
+      const vv = window.visualViewport, coarse = matchMedia("(pointer: coarse)");
+      let baseW = 0, baseH = 0;
+      const checkKb = () => {
+        const w = innerWidth, hh = vv ? vv.height : innerHeight;
+        if (w !== baseW) { baseW = w; baseH = hh; }          // ширина изменилась (поворот экрана): считаем заново
+        baseH = Math.max(baseH, hh);                         // полная высота без клавиатуры
+        document.body.classList.toggle("kb", coarse.matches && baseH - hh > 120);
+      };
+      if (vv) vv.addEventListener("resize", checkKb);
+      addEventListener("resize", checkKb);
+      checkKb();
       const gateBox = document.querySelector(".gate-box"), remember = document.querySelector(".remember");
       let keepLift = false, keepTimer = 0;
       pass.addEventListener("focus", () => gateBox.classList.add("lift"));
