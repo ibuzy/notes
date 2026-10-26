@@ -95,7 +95,7 @@
     html.booting { overflow: hidden; }
   </style>
   <noscript><style>#boot { display: none; }</style></noscript>
-  <link rel="stylesheet" href="style.css?v=31">
+  <link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
 
@@ -536,8 +536,12 @@
       function toggleAbout(open) {
         about.classList.toggle("open", open);
         aboutBtn.setAttribute("aria-expanded", open);
-        if (open) typeAbout();
-        else { cancelAnimationFrame(typeRaf); aboutBtn.blur(); }   // снимаем фокус, чтобы кнопка гасла на телефоне
+        if (open) {
+          const clip = about.querySelector(".about-clip");
+          clip.scrollTop = 0;                  // при каждом открытии текст показывается с самого верха, а не с того места, где закрыли
+          typeAbout();
+          clip.scrollTop = 0;                  // ещё раз после подстановки текста: так прокрутка точно не сохраняется
+        } else { cancelAnimationFrame(typeRaf); aboutBtn.blur(); }   // снимаем фокус, чтобы кнопка гасла на телефоне
       }
 
       /* на телефоне окно закрывается свайпом вниз (если текст пролистан до верха) */
