@@ -587,6 +587,7 @@ ul { list-style: none; }
   backdrop-filter: blur(12px) saturate(1.15);   /* фон размывается, но чуть-чуть виден */
   isolation: isolate;
   border: 1px solid var(--ink);
+  border-top-color: transparent;     /* верхнюю линию рисует .gate-title, чтобы под заголовком не было рамки */
   box-shadow: 4px 4px 0 var(--ink);
   animation: pop .8s var(--out) backwards;
   transition: background-color .5s var(--ease), border-color .5s var(--ease), box-shadow .4s var(--ease), transform .4s var(--ease);
@@ -594,16 +595,30 @@ ul { list-style: none; }
 /* класс .lift ставит скрипт, пока фокус в поле кода; галочка «запомнить меня» блок не опускает */
 .gate-box.lift { box-shadow: 8px 8px 0 var(--ink); transform: translate(-2px, -2px); }
 
+/* заголовок «врезан» в верхнюю рамку без фона: сам верхний край рисуется двумя линиями по бокам от текста (::before и ::after),
+   а настоящая верхняя рамка окна прозрачна, поэтому за текстом нет ни тёмного, ни размытого прямоугольника */
 .gate-title {
   position: absolute;
-  top: 0;
-  left: 20px;
-  transform: translateY(-50%);
-  padding: 0 .6em;
-  background: var(--paper);
+  top: -10px;
+  left: -1px;
+  right: -1px;
+  height: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: .6em;
   font-size: 16px;
+  line-height: 20px;
+}
+.gate-title::before,
+.gate-title::after {
+  content: "";
+  height: 1px;
+  margin-top: 9px;                 /* линия ложится ровно на верхнюю рамку окна */
+  background: var(--ink);
   transition: background-color .5s var(--ease);
 }
+.gate-title::before { flex: 0 0 21px; }   /* короткий отрезок слева от текста */
+.gate-title::after { flex: 1; }           /* и длинный справа до самого угла */
 
 .field { position: relative; }
 .field input {
