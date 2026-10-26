@@ -67,6 +67,12 @@ button:focus, a:focus { outline: none; }
 input { font: inherit; color: inherit; -webkit-user-select: text; user-select: text; }
 input::selection { background: var(--ink); color: var(--paper); }
 
+/* ---------- Чёрный экран после входа (создаёт скрипт; такой же, как экран загрузки страницы #boot) ---------- */
+.load-screen { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: #000; color: #f2f2f2; transition: opacity .5s ease; }
+.load-screen.hide { opacity: 0; pointer-events: none; }
+.load-screen i { display: block; width: 32px; height: 4px; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px); animation: boot-load 1.2s ease-in-out infinite; }
+html.booting .load-screen i { animation-play-state: running !important; }   /* индикатор крутится, пока остальные анимации стоят */
+
 /* ---------- Туманности (самый нижний слой, рисует скрипт) ---------- */
 #neb {
   position: fixed;
@@ -151,7 +157,8 @@ input::selection { background: var(--ink); color: var(--paper); }
    Размер и высота как у кнопки выхода справа снизу. По нажатию справа от кнопки, на одном уровне, выезжают две лицензии:
        название сайта / MIT License   и   WebPlus IBM MDA / CC BY-SA 4.0 */
 .lic-toggle,
-.lic-list {
+.lic-list,
+.lic-gate {
   --l0: calc(max(16px, env(safe-area-inset-left)) + (44px - var(--tb)) / 2);
   --lslot: calc(max(16px, env(safe-area-inset-bottom)) + (44px - var(--tb)) / 2);
 }
@@ -178,6 +185,38 @@ body.lic-open .lic-list {
   pointer-events: auto;
   transition: transform .35s var(--ease), opacity .35s var(--ease), visibility 0s;
 }
+/* до входа кнопки «L» нет: на экране ввода кода обе лицензии стоят по центру внизу (на высоте будущей кнопки L) */
+body:not(.in) .lic-toggle, body:not(.in) .lic-list { display: none; }
+.lic-gate {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--lslot) + (var(--tb) - 28px) / 2);
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 22px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .35s var(--ease), visibility 0s .35s;
+}
+.lic-gate > * { pointer-events: auto; }
+.lic-gate .lic-item { font-size: 8px; }   /* на экране входа мельче, чтобы не выделялись */
+/* на компьютере лицензии стоят в левом нижнем углу друг над другом (сверху MIT, снизу CC BY-SA):
+   слева по краю «ibuzy projects» в шапке, снизу по нижнему краю значка кнопки выхода */
+@media (min-width: 701px) {
+  .lic-gate {
+    left: var(--edge);
+    right: auto;
+    bottom: calc(var(--lslot) + (var(--tb) - var(--ti)) / 2);
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 9px;
+  }
+}
+.gate:not([hidden]) ~ .lic-gate { opacity: 1; visibility: visible; transition: opacity .35s var(--ease), visibility 0s; }   /* виден, пока показано окно входа */
 .lic-item {
   position: relative;
   display: flex;
