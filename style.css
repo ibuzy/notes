@@ -176,8 +176,8 @@ body.lic-open .lic-list {
 .lic-item::before { content: ""; position: absolute; inset: -6px; }      /* зона нажатия больше мелкого текста */
 .lic-item:hover, .lic-item:focus-visible, .lic-item:active { color: var(--ink); }
 .lic-item:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
-body.reading .lic-toggle, body.reading .lic-list { opacity: 0; pointer-events: none; }
 @media (max-width: 700px) {
+  body.reading .lic-toggle, body.reading .lic-list { opacity: 0; pointer-events: none; }
   body.reading .logout-toggle { opacity: 0; pointer-events: none; }
 }
 
