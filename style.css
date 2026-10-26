@@ -31,6 +31,7 @@
 /* на телефоне кнопки управления ещё компактнее */
 @media (max-width: 600px) {
   .remember { font-size: 11px; gap: .45em; white-space: nowrap; }
+  .remember .rem-more { display: none; }   /* на телефоне подпись короче: просто «запомнить меня» */
 }
 
 @media (max-width: 600px) {
@@ -689,7 +690,9 @@ ul { list-style: none; }
   cursor: pointer;
   transition: color .3s;
 }
-.remember:hover, .remember:focus-within { color: var(--ink); }
+@media (hover: hover) { .remember:hover { color: var(--ink); } }   /* на телефоне «залипшего» наведения после касания нет */
+.remember:focus-within { color: var(--ink); }
+.remember.on { color: var(--ink); }   /* пока галочка стоит, надпись и квадратик всегда яркие (класс .on ставит скрипт), как бы ни нажимали вокруг */
 .remember input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .chk {
   display: inline-grid;

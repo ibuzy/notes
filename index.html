@@ -184,7 +184,7 @@
       <label class="remember">
         <input type="checkbox" id="gate-remember">
         <span class="chk" aria-hidden="true"><svg viewBox="0 0 5 4" shape-rendering="crispEdges"><path d="M4 0h1v1h-1zM3 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM1 3h1v1h-1z"/></svg></span>
-        <span>запомнить меня на этом устройстве</span>
+        <span>запомнить меня<span class="rem-more"> на этом устройстве</span></span>
       </label>
     </div>
   </form>
@@ -593,6 +593,15 @@
         keepLift = false;
         clearTimeout(keepTimer);
       });
+      /* галочка стоит — «запомнить меня» остаётся активным (яркий) и не гаснет, когда нажимают в другом месте или убирают курсор */
+      const rememberBox = $("gate-remember");
+      const syncRemember = () => remember.classList.toggle("on", rememberBox.checked);
+      rememberBox.addEventListener("change", () => {
+        syncRemember();
+        /* галочку сняли — подпись должна погаснуть: убираем фокус, который оставил бы её яркой (с клавиатуры фокус не трогаем) */
+        if (!rememberBox.checked && !rememberBox.matches(":focus-visible")) rememberBox.blur();
+      });
+      syncRemember();
       /* шестерёнка: раскрывает / сворачивает кнопки; нажатие в любом другом месте сворачивает.
          В режиме «пустота» меню остаётся как было, чтобы глаз вернулся на своё место в нём. */
       const gear = $("gear");
