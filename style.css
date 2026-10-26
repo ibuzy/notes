@@ -104,7 +104,7 @@ input::selection { background: var(--ink); color: var(--paper); }
   position: fixed;
   left: max(16px, env(safe-area-inset-left));      /* прямо в углу, как кнопки справа */
   bottom: max(16px, env(safe-area-inset-bottom));
-  z-index: 5;
+  z-index: 30;                                     /* выше окна входа (.gate, 5) и «что за проект?» (6), иначе они перекрывают ссылку */
   display: flex;
   flex-direction: column;
   font-size: 8px;
@@ -114,6 +114,8 @@ input::selection { background: var(--ink); color: var(--paper); }
   text-decoration: none;
   transition: opacity .3s;
 }
+/* невидимая зона нажатия шире мелкого текста, чтобы попадать пальцем и мышью */
+.font-license::before { content: ""; position: absolute; inset: -10px; }
 .font-license:hover, .font-license:focus-visible, .font-license:active { opacity: .35; }
 .font-license:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
 body.reading .font-license { opacity: 0; pointer-events: none; }
@@ -824,19 +826,8 @@ a.ext:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
 html, body { scrollbar-width: none; }
 html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { display: none; }
 
-/* На телефонах прокручивается сама страница, а не вложенный список заметок.
-   Это позволяет Яндекс Браузеру распознать собственный pull-to-refresh у верхней границы. */
+/* На телефоне заметки листаются отдельным блоком, как на компьютере: страница стоит на месте.
+   Полоска стоит в 12-пиксельном поле между заметками и краем экрана. */
 @media (max-width: 600px) {
-  .home {
-    height: auto;
-    min-height: 100dvh;
-  }
-  .letters-wrap {
-    flex: 0 0 auto;
-    min-height: auto;
-    overflow-y: visible;
-    overscroll-behavior-y: auto;
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
+  .sbar { right: 4px; }
 }
