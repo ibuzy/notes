@@ -493,7 +493,7 @@
         aboutText.append(typed, rest);
         const t0 = performance.now() + 150;          // печать стартует чуть позже начала раскрытия
         const step = now => {
-          const n = Math.min(ABOUT_LEN, Math.max(0, Math.floor((now - t0) / 2.2)));   // ≈ 450 символов в секунду
+          const n = Math.min(ABOUT_LEN, Math.max(0, Math.floor((now - t0) / 0.9)));   // ≈ 1100 символов в секунду (чем меньше делитель, тем быстрее печать)
           typed.textContent = rest.textContent = "";
           renderAbout(typed, 0, n);
           renderAbout(rest, n, ABOUT_LEN);
