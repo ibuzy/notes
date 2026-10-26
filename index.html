@@ -1389,6 +1389,14 @@
             byColor.get(col).push(x, y);
           }
           d.groups = [...byColor];
+          /* лёгкая «атмосфера»: клетки вплотную вокруг силуэта (4 соседа), цвет — самый частый цвет планеты */
+          const halo = new Set();
+          for (const [x, y] of byPos.values()) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + dx, ny = y + dy;
+            if (!byPos.has(ny * 100 + nx)) halo.add((ny + 5) * 1000 + (nx + 5));   // сдвиг на 5, чтобы не было отрицательных чисел
+          }
+          d.halo = [...halo].map(k => [(k % 1000) - 5, Math.floor(k / 1000) - 5]);
+          d.haloColor = d.groups.reduce((m, g) => g[1].length > m[1].length ? g : m)[0];
         }
         const planets = [];
         let nextPlanet = 0, nextComet = 0;
@@ -1432,9 +1440,25 @@
           const ox = Math.round((q.x + Math.sin(t * q.f + q.p) * q.amp) * D), oy = Math.round(q.y * D);
           const cs = Math.round(CELL * D);
           ctx.globalAlpha = a * .55;
+          /* лёгкая анимация: атмосфера «дышит» (слабый ореол в одну клетку вокруг силуэта) */
+          ctx.globalAlpha = a * (.11 + .08 * Math.sin(t * .8 + q.p));
+          ctx.fillStyle = q.d.haloColor;
+          for (const [hx, hy] of q.d.halo) ctx.fillRect(ox + hx * cs, oy + hy * cs, cs, cs);
+          ctx.globalAlpha = a * .55;
           for (const [col, xy] of q.d.groups) {
             ctx.fillStyle = col;
             for (let i = 0; i < xy.length; i += 2) ctx.fillRect(ox + xy[i] * cs, oy + xy[i + 1] * cs, cs, cs);
+          }
+          /* и по поверхности медленно проходит светлая полоска: словно планета вращается и ловит свет */
+          const sweep = ((t * 1.5 + q.p * 3) % (q.d.w + 8)) - 4;
+          ctx.fillStyle = "#fff";
+          for (const [, xy] of q.d.groups) {
+            for (let i = 0; i < xy.length; i += 2) {
+              const k = 1 - Math.abs(xy[i] + .5 - sweep) / 1.6;
+              if (k <= 0) continue;
+              ctx.globalAlpha = a * .3 * k;
+              ctx.fillRect(ox + xy[i] * cs, oy + xy[i + 1] * cs, cs, cs);
+            }
           }
           /* название: впритык под планетой, того же размера и вида, что у созвездий */
           ctx.fillStyle = color;
