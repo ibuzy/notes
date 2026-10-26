@@ -10,6 +10,7 @@
   --paper: #fff;
   --muted: #777;
   --gold: #d49a00;
+  --glass: rgba(255, 255, 255, .58);   /* полупрозрачная заливка окон «код доступа» и «что за проект?» */
   --ease: cubic-bezier(.65, 0, .35, 1);
   --out: cubic-bezier(.22, 1, .36, 1);   /* плавное появление: быстрый старт, мягкая остановка */
   --tb: 36px;                       /* размер кнопок управления справа сверху */
@@ -21,6 +22,7 @@
 :root[data-theme="dark"] {
   --ink: #f2f2f2;
   --paper: #0a0a0a;
+  --glass: rgba(10, 10, 10, .58);
   --muted: #8a8a8a;
   --gold: #f2c230;
   color-scheme: dark;
@@ -579,7 +581,10 @@ ul { list-style: none; }
   position: relative;
   width: min(380px, 100%);
   padding: 40px 28px 22px;
-  background: var(--paper);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);   /* фон размывается, но чуть-чуть виден */
+  isolation: isolate;
   border: 1px solid var(--ink);
   box-shadow: 4px 4px 0 var(--ink);
   animation: pop .8s var(--out) backwards;
@@ -773,7 +778,11 @@ body.kb .about > * { pointer-events: none; }
   display: grid;
   grid-template-rows: 0fr;
   width: min(720px, 100%);
-  background: var(--paper);
+  position: relative;
+  isolation: isolate;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
   border: 1px solid var(--muted);
   box-shadow: 4px 4px 0 var(--muted);
   opacity: 0;
@@ -1043,4 +1052,17 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { d
    Полоска стоит в 12-пиксельном поле между заметками и краем экрана. */
 @media (max-width: 600px) {
   .sbar { right: 4px; }
+}
+
+/* ---------- Матовое стекло: слабый шум поверх размытого фона в окнах «код доступа» и «что за проект?» ---------- */
+.gate-box::before,
+.about-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;                      /* над заливкой окна, но под текстом */
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.6 -.45'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 140px 140px;
+  opacity: .07;                     /* шум еле заметен: основной эффект — размытие */
 }
