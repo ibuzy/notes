@@ -17,13 +17,14 @@
     и ссылка на открытый исходный код. Закрывается кнопкой, Esc или свайпом вниз.
   • Письма: <v>выделение</v>, <u>подчёркивание</u>, <i>курсив</i>, <b>жирный</b>
     и ссылки <a href="https://...">текст</a> (только http/https).
-  • Лицензия на шрифт (WebPlus IBM MDA, CC BY-SA 4.0): ссылка слева снизу на int10h.org/oldschool-pc-fonts,
-    при наведении плавно гаснет.
+  • Лицензии: кнопка «L» слева снизу (на одной линии с кнопкой выхода). По нажатию вправо, на одном уровне,
+    выезжают две ссылки: ibuzy projects — MIT License (github.com/ibuzy/secret) и шрифт WebPlus IBM MDA — CC BY-SA 4.0
+    (int10h.org/oldschool-pc-fonts). Закрываются повторным нажатием, нажатием в другом месте или Esc.
   • Фон: летающие пиксели, настоящие созвездия (24 штуки), которые линиями прорисовываются на экране,
     и маленькие пиксельные планеты Солнечной системы (все восемь): появляются в случайное время и в
     случайном месте, не близко к другим планетам и созвездиям.
   • Кнопки справа сверху (стопкой, на телефоне компактнее): тема, анимации и звук; после входа ещё
-    «выйти» (справа внизу). На телефоне тема, анимации, звук и «пустота» спрятаны в шестерёнку справа сверху.
+    «выйти» (справа внизу). Тема, анимации, звук и «пустота» спрятаны в шестерёнку справа сверху: на компьютере раскрываются вниз столбиком, на телефоне — влево и по диагонали.
     По умолчанию тема тёмная, звук выключен; выбор запоминается в браузере.
   • ЗВУК: при нажатии на любую кнопку проигрывается sounds/click.mp3 (mp3 понимают все браузеры,
     включая iPhone). Играет через Web Audio (файл грузится один раз). Включается кнопкой-динамиком под кнопкой анимаций; пока она выключена — тишина.
@@ -50,9 +51,9 @@
   </script>
   <!-- экран загрузки: чёрный, с индикатором по центру; стили инлайном, чтобы он был виден раньше style.css -->
   <style>
-    #boot { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: #000; color: #f2f2f2; transition: opacity .35s steps(4); }
+    #boot { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: #000; color: #f2f2f2; transition: opacity .5s ease; }
     #boot.hide { opacity: 0; pointer-events: none; }
-    #boot i { display: block; width: 32px; height: 4px; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px); animation: boot-load 1s steps(1) infinite; }
+    #boot i { display: block; width: 32px; height: 4px; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px); animation: boot-load 1.2s ease-in-out infinite; }
     @keyframes boot-load { 0% { clip-path: inset(0 100% 0 0); } 25% { clip-path: inset(0 75% 0 0); } 50% { clip-path: inset(0 50% 0 0); } 75% { clip-path: inset(0 25% 0 0); } 100% { clip-path: inset(0 0 0 0); } }
     /* пока идёт загрузка, анимации появления стоят на первом кадре и стартуют, когда экран загрузки уходит */
     html.booting *, html.booting ::before, html.booting ::after { animation-play-state: paused !important; }
@@ -60,7 +61,7 @@
     html.booting { overflow: hidden; }
   </style>
   <noscript><style>#boot { display: none; }</style></noscript>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -73,7 +74,7 @@
     <span class="brand-text">ibuzy projects</span>
   </a>
 
-  <!-- шестерёнка (только на телефоне): раскрывает кнопки тема / анимации / звук / пустота, нажатие в любом другом месте сворачивает их обратно -->
+  <!-- шестерёнка: раскрывает кнопки тема / анимации / звук / пустота, нажатие в любом другом месте сворачивает их обратно -->
   <button class="gear-toggle" id="gear" type="button" aria-label="Меню" aria-expanded="false">
     <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
       <path d="M5 1h3v1h-3zM2 2h2v1h-2zM5 2h3v1h-3zM9 2h2v1h-2zM2 3h9v1h-9zM3 4h7v1h-7zM1 5h4v1h-4zM8 5h4v1h-4zM1 6h4v1h-4zM8 6h4v1h-4zM1 7h4v1h-4zM8 7h4v1h-4zM3 8h7v1h-7zM2 9h9v1h-9zM2 10h2v1h-2zM5 10h3v1h-3zM9 10h2v1h-2zM5 11h3v1h-3z"/>
@@ -111,7 +112,7 @@
   </button>
 
   <!-- «пустота»: глаз; прячет весь интерфейс и оставляет только фон. Нигде не сохраняется, после перезагрузки сбрасывается.
-       На компьютере стоит над кнопкой выхода, после нажатия переезжает на её место; на телефоне — справа снизу. -->
+       Лежит в меню шестерёнки; после нажатия переезжает на место шестерёнки. -->
   <button class="peek-toggle" id="peek" type="button" aria-label="Пустота: спрятать всё, кроме фона" aria-pressed="false" data-tip="пустота">
     <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
       <path class="eye" d="M4 2h5v1h-5zM2 3h9v1h-9zM1 4h3v1h-3zM9 4h3v1h-3zM0 5h2v1h-2zM5 5h3v1h-3zM11 5h2v1h-2zM0 6h2v1h-2zM5 6h3v1h-3zM11 6h2v1h-2zM0 7h2v1h-2zM5 7h3v1h-3zM11 7h2v1h-2zM1 8h3v1h-3zM9 8h3v1h-3zM2 9h9v1h-9zM4 10h5v1h-5z"/>
@@ -119,11 +120,22 @@
     </svg>
   </button>
 
-  <!-- лицензия на шрифт: слева снизу, при наведении гаснет, ведёт на страницу шрифта -->
-  <a class="font-license" href="https://int10h.org/oldschool-pc-fonts/" target="_blank" rel="noopener noreferrer">
-    <span>WebPlus IBM MDA</span>
-    <span>CC BY-SA 4.0</span>
-  </a>
+  <!-- лицензии: кнопка «L» слева снизу (на одной линии с кнопкой выхода). По нажатию вправо на одном уровне выезжают две ссылки -->
+  <button class="lic-toggle" id="lic-btn" type="button" aria-label="Лицензии" aria-expanded="false" data-tip="лицензии">
+    <svg viewBox="0 0 13 13" shape-rendering="crispEdges" aria-hidden="true">
+      <path d="M2 0h6v1h-6zM4 1h2v10h-2zM0 11h12v2h-12zM11 9h1v2h-1z"/>
+    </svg>
+  </button>
+  <div class="lic-list">
+    <a class="lic-item" href="https://github.com/ibuzy/secret/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">
+      <span>ibuzy projects</span>
+      <span>MIT License</span>
+    </a>
+    <a class="lic-item" href="https://int10h.org/oldschool-pc-fonts" target="_blank" rel="noopener noreferrer">
+      <span>WebPlus IBM MDA</span>
+      <span>CC BY-SA 4.0</span>
+    </a>
+  </div>
 
   <!-- вход по коду доступа: письма расшифровываются в браузере и существуют только в памяти -->
   <form class="gate" id="gate" autocomplete="off">
@@ -261,7 +273,7 @@
         say("", false);
         gate.classList.add("done");
         about.classList.add("done");
-        if (!isOff()) await new Promise(r => setTimeout(r, 350));
+        if (!isOff()) await new Promise(r => setTimeout(r, 400));
         gate.hidden = true;
         about.hidden = true;
         showHome();
@@ -408,7 +420,7 @@
         keepLift = false;
         clearTimeout(keepTimer);
       });
-      /* шестерёнка на телефоне: раскрывает / сворачивает кнопки; нажатие в любом другом месте сворачивает.
+      /* шестерёнка: раскрывает / сворачивает кнопки; нажатие в любом другом месте сворачивает.
          В режиме «пустота» меню остаётся как было, чтобы глаз вернулся на своё место в нём. */
       const gear = $("gear");
       const setMenu = on => { document.body.classList.toggle("menu", on); gear.setAttribute("aria-expanded", on); };
@@ -419,6 +431,30 @@
         if (e.target.closest(".gear-toggle, .theme-toggle, .motion-toggle, .sound-toggle, .peek-toggle")) return;
         setMenu(false);
       });
+
+      /* строки лицензий выравниваются по краю самих букв: у «i» слева пустое поле, из-за чего «ibuzy projects» казалось сдвинутым вправо */
+      function alignLic() {
+        const c = document.createElement("canvas").getContext("2d");
+        document.querySelectorAll(".lic-item span").forEach(sp => {
+          const cs = getComputedStyle(sp);
+          c.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+          const m = c.measureText(sp.textContent.trim().charAt(0));
+          sp.style.marginLeft = (Math.round(m.actualBoundingBoxLeft * 2) / 2) + "px";   // чернила правее начала строки: сдвигаем влево
+        });
+      }
+      if (document.fonts && document.fonts.load) document.fonts.load("10px ArchiveFont").then(alignLic, alignLic);
+      else alignLic();
+
+      /* лицензии: кнопка «L» раскрывает / сворачивает две ссылки; нажатие в другом месте и Esc сворачивают */
+      const licBtn = $("lic-btn");
+      const setLic = on => { document.body.classList.toggle("lic-open", on); licBtn.setAttribute("aria-expanded", on); };
+      licBtn.addEventListener("click", () => setLic(!document.body.classList.contains("lic-open")));
+      document.addEventListener("pointerdown", e => {
+        if (!document.body.classList.contains("lic-open")) return;
+        if (e.target.closest(".lic-toggle, .lic-list")) return;
+        setLic(false);
+      });
+      document.addEventListener("keydown", e => { if (e.key === "Escape") setLic(false); });
 
       /* «пустота»: класс на body прячет всё, кроме фона и самой кнопки. Состояние нигде не хранится: после перезагрузки сбрасывается */
       $("peek").addEventListener("click", () => {
@@ -945,7 +981,7 @@
           /* звёзды: квадратные пиксели, мерцают ступенями */
           for (let i = 0; i < c.s.length; i++) {
             const [x, y] = pt(i);
-            const tw = Math.round((Math.sin(t * 1.1 + i * 1.7 + q.p) + 1) / 2 * 3) / 3;
+            const tw = (Math.sin(t * 1.1 + i * 1.7 + q.p) + 1) / 2;
             const size = Math.round((2 + c.s[i][2]) * D);
             ctx.globalAlpha = a * (.55 + .45 * tw);
             ctx.fillRect(Math.round(x * D), Math.round(y * D), size, size);
@@ -1144,7 +1180,7 @@
             const damp = Math.exp(-dt * 2.5);
             p.ox *= damp; p.oy *= damp;
 
-            const tw = Math.round((Math.sin(t * p.tw + p.tp) + 1) / 2 * 3) / 3;   // 4 ступени яркости
+            const tw = (Math.sin(t * p.tw + p.tp) + 1) / 2;                        // плавное мерцание
             ctx.globalAlpha = p.a * (.35 + .65 * tw);
             const s = Math.round(p.s * D);
             ctx.fillRect(Math.round(x * D), Math.round(y * D), s, s);
@@ -1193,7 +1229,7 @@
           requestAnimationFrame(() => {
             root.classList.remove("booting");   // стартуют анимации появления
             boot.classList.add("hide");
-            setTimeout(() => boot.remove(), 450);
+            setTimeout(() => boot.remove(), 600);
           });
         }, wait);
       };
