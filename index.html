@@ -14,7 +14,8 @@
     спрашивают, пока не нажата кнопка «выйти» (справа внизу, на телефоне тоже справа внизу; она стирает ключ). Сменили код или пересобрали letters.enc — ключ перестанет подходить,
     и сайт снова попросит код.
   • «что за проект?» — раскрывающееся окно с описанием: текст печатается, в нём есть оформление
-    и ссылка на открытый исходный код. Закрывается кнопкой, Esc или свайпом вниз.
+    и ссылка на открытый исходный код. Закрывается кнопкой, Esc, свайпом вниз (если текст пролистан до верха)
+    или, на телефоне, нажатием в любом месте экрана вне окна с текстом.
   • Избранное: в открытой заметке справа от названия стоит значок-закладка (лента с V-вырезом снизу, нарисована на более мелкой пиксельной сетке 19×19, чтобы не казаться грубее остальных кнопок); по нажатию он заливается жёлтым, подпрыгивает
     и разлетается пикселями. В списке избранные заметки помечены маленьким жёлтым значком у верхнего правого угла названия.
     Избранное хранится только на устройстве (с галочкой «запомнить меня» — в localStorage, ключ "fav", без неё — в sessionStorage)
@@ -509,13 +510,14 @@
         else { cancelAnimationFrame(typeRaf); aboutBtn.blur(); }   // снимаем фокус, чтобы кнопка гасла на телефоне
       }
 
-      /* на телефоне окно закрывается свайпом вниз */
+      /* на телефоне окно закрывается свайпом вниз (если текст пролистан до верха) */
       let swipeY = null, swipeX = 0;
       document.addEventListener("touchstart", e => {
         if (!about.classList.contains("open") || e.touches.length !== 1) { swipeY = null; return; }
-        /* если текст длинный и листается внутри окна, свайп вниз — это прокрутка, а не закрытие */
+        /* если текст длинный и листается внутри окна, свайп вниз — это прокрутка, а не закрытие;
+           закрывает он только когда текст уже пролистан до самого верха */
         const clip = about.querySelector(".about-clip");
-        if (clip.contains(e.target) && clip.scrollHeight > clip.clientHeight + 1) { swipeY = null; return; }
+        if (clip.contains(e.target) && clip.scrollHeight > clip.clientHeight + 1 && clip.scrollTop > 0) { swipeY = null; return; }
         swipeY = e.touches[0].clientY;
         swipeX = e.touches[0].clientX;
       }, { passive: true });
@@ -524,10 +526,19 @@
         const t = e.changedTouches[0];
         const dy = t.clientY - swipeY, dx = Math.abs(t.clientX - swipeX);
         swipeY = null;
+        const clip = about.querySelector(".about-clip");
+        if (clip.scrollTop > 0) return;                 // текст сдвинулся — это была прокрутка
         if (dy > 50 && dy > dx * 1.5) toggleAbout(false);
       }, { passive: true });
       document.addEventListener("touchcancel", () => { swipeY = null; }, { passive: true });
       aboutBtn.addEventListener("click", () => toggleAbout(!about.classList.contains("open")));
+      /* на телефоне нажатие в любом месте экрана, кроме самого окна с текстом, тоже закрывает описание */
+      const touchOnly = window.matchMedia("(hover: none)");
+      document.addEventListener("click", e => {
+        if (!touchOnly.matches || !about.classList.contains("open")) return;
+        if (about.querySelector(".about-panel").contains(e.target) || aboutBtn.contains(e.target)) return;
+        toggleAbout(false);
+      });
 
       /* Обновление свайпом вниз оставляем браузеру: сайт не перехватывает жест. */
 
