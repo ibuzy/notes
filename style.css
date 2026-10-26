@@ -67,6 +67,21 @@ button:focus, a:focus { outline: none; }
 input { font: inherit; color: inherit; -webkit-user-select: text; user-select: text; }
 input::selection { background: var(--ink); color: var(--paper); }
 
+/* ---------- Туманности (самый нижний слой, рисует скрипт) ---------- */
+#neb {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;                 /* под #px: ни с чем не взаимодействует */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .6s;
+}
+#neb.on { opacity: 1; }
+:root:not([data-theme="dark"]) #neb { mix-blend-mode: multiply; }   /* на светлой теме тёмным пятном, а не белым */
+:root[data-motion="off"] #neb { display: none; }
+
 /* ---------- Летающие пиксели (рисует canvas) ---------- */
 #px {
   position: fixed;
@@ -127,6 +142,7 @@ input::selection { background: var(--ink); color: var(--paper); }
   border: 0;
   color: var(--ink);
   cursor: pointer;
+  filter: opacity(var(--fade, 1));         /* затухание при прокрутке письма (скрипт); не мешает собственной прозрачности кнопок меню */
   transition: opacity .2s;
 }
 .gear-toggle { z-index: 21; }            /* шестерёнка всегда поверх выезжающих кнопок */
@@ -209,7 +225,7 @@ body.peek .peek-toggle .slash { opacity: 1; }
 .peek-toggle path { transition: opacity .4s var(--ease); }
 
 /* в режиме «пустота» всё, кроме фона и самой кнопки, плавно гаснет и перестаёт нажиматься */
-body.peek > :not(#px):not(#peek):not(#boot) {
+body.peek > :not(#px):not(#neb):not(#peek):not(#boot) {
   opacity: 0 !important;
   visibility: hidden;
   pointer-events: none !important;
@@ -355,8 +371,13 @@ body.peek .peek-toggle {
   width: var(--ti);
   height: var(--ti);
   fill: currentColor;
-  transition: opacity .25s var(--ease);
+  transition: opacity .25s var(--ease), rotate .5s var(--out);
 }
+/* нажатие: значок на мгновение сжимается и мягко возвращается к исходному размеру (без :active: на телефоне он мог «залипать») */
+.theme-toggle.tap svg, .motion-toggle.tap svg, .sound-toggle.tap svg, .logout-toggle.tap svg,
+.peek-toggle.tap svg, .gear-toggle.tap svg, .lic-toggle.tap svg { animation: ctlpop .35s var(--ease); }
+@keyframes ctlpop { 0% { scale: 1; } 40% { scale: .94; } 100% { scale: 1; } }   /* лёгкое прожатие без перелёта */
+body.menu .gear-toggle svg { rotate: 90deg; }      /* шестерёнка поворачивается, пока меню открыто */
 .theme-toggle .sun { opacity: 0; }
 :root[data-theme="dark"] .theme-toggle .sun  { opacity: 1; }
 :root[data-theme="dark"] .theme-toggle .moon { opacity: 0; }
@@ -459,16 +480,30 @@ ul { list-style: none; }
   max-width: calc(90rem + 2 * var(--pad));
 }
 /* тонкая полоска прокрутки (2px) сразу справа от заметок; верх и низ совпадают с зоной затухания */
+.letters-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+}
 .sbar {
   position: absolute;
-  top: 20px;
-  bottom: 20px;
+  top: 44px;                               /* внутри зоны заметок, с большим запасом от краёв: полоска короткая */
+  bottom: 44px;
   right: calc(var(--pad) - 12px);          /* вплотную к правому краю заметок (12px от них) */
   width: 2px;
+  transform: scaleX(.5);                   /* в покое тоньше: плавно сжимается вправо (правый край на месте) */
+  transform-origin: 100% 50%;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .4s var(--ease);
+  will-change: transform;                  /* своим слоем: сжатие идёт плавно, без скачков по пикселям */
+  transition: opacity .4s var(--ease), transform 1.3s cubic-bezier(.4, 0, .2, 1);
 }
+.sbar.act, .sbar.drag { transform: none; transition: opacity .4s var(--ease), transform .5s cubic-bezier(.4, 0, .2, 1); }
+.sbar i { opacity: .55; transition: opacity 1.3s cubic-bezier(.4, 0, .2, 1), background-color .3s; }   /* в покое ещё и бледнеет */
+.sbar.act i, .sbar.drag i { opacity: 1; transition-duration: .5s, .3s; }
 .sbar.on { opacity: 1; pointer-events: auto; }
 /* невидимая зона захвата шире самой полоски, чтобы попадать пальцем */
 .sbar::before { content: ""; position: absolute; top: 0; bottom: 0; left: -10px; right: -16px; }
@@ -571,7 +606,9 @@ ul { list-style: none; }
    сверху в самом блоке и так есть мягкий отступ 20px) */
 @media (max-width: 600px) {
   .note { display: none; }
-  .count { margin-bottom: 0; }
+  .count { display: none; }                         /* на телефоне счётчик заметок скрыт */
+  h1 { font-size: 28px; margin-bottom: 0; }          /* заголовок чуть меньше */
+  .letters-box { margin-top: 28px; }                 /* блок заметок и сортировка чуть ниже заголовка */
 }
 
 @keyframes blink { 50% { opacity: 0; } }
@@ -1084,7 +1121,8 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { d
 
 /* ---------- Матовое стекло: слабый шум поверх размытого фона в окнах «код доступа» и «что за проект?» ---------- */
 .gate-box::before,
-.about-panel::before {
+.about-panel::before,
+.sort-menu::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -1094,3 +1132,125 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { d
   background-size: 140px 140px;
   opacity: .07;                     /* шум еле заметен: основной эффект — размытие */
 }
+
+/* ---------- Сортировка заметок ----------
+   Справа над блоком заметок (по правому краю самих заметок). Кнопка «сортировка ⇅»; на телефоне только значок.
+   Меню раскрывается вниз как окно «что за проект?»: матовое стекло с шумом, пиксельная тень.
+   Пункты выезжают по очереди, текущий отмечен полоской слева (она плавно переезжает между пунктами). */
+.sort {
+  position: relative;
+  z-index: 4;
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--sort-r, var(--pad));
+  text-align: left;
+}
+.sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 8px 12px;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color .3s var(--ease);
+}
+.sort-btn svg { width: 14px; height: 14px; fill: currentColor; overflow: visible; }
+.sort-btn .up, .sort-btn .dn { transition: transform .4s var(--out); }
+.sort.open .sort-btn .up { transform: translateY(-1px); }
+.sort.open .sort-btn .dn { transform: translateY(1px); }
+@media (hover: hover) { .sort-btn:hover { color: var(--ink); } }
+.sort-btn:focus-visible, .sort.open .sort-btn { color: var(--ink); }
+.sort-btn:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+
+.sort-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: var(--sort-r, var(--pad));
+  z-index: 5;
+  display: grid;
+  grid-template-rows: 0fr;
+  width: max-content;
+  min-width: 232px;
+  max-width: calc(100vw - 24px);
+  isolation: isolate;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
+  border: 1px solid var(--muted);
+  box-shadow: 4px 4px 0 var(--muted);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transform-origin: 100% 0;
+  transition: grid-template-rows .4s var(--ease), opacity .25s var(--ease), transform .4s var(--out), visibility 0s linear .4s, background-color .5s var(--ease);
+}
+.sort.open .sort-menu {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: grid-template-rows .4s var(--ease), opacity .25s var(--ease), transform .4s var(--out), visibility 0s, background-color .5s var(--ease);
+}
+.sort-clip { min-height: 0; overflow: hidden; }
+.sort-list { position: relative; padding: 8px 0; }
+
+/* полоска слева: высота 16px по центру пункта (пункт 34px), переезжает к выбранному */
+.sort-mark {
+  position: absolute;
+  left: 0;
+  top: 17px;
+  width: 3px;
+  height: 16px;
+  background: var(--ink);
+  transform: translateY(calc(var(--si, 0) * 34px));
+  transition: transform .45s var(--out);
+}
+
+.sort-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 34px;
+  padding: 0 20px 0 22px;
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+  text-align: left;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity .2s var(--ease), transform .2s var(--ease), color .3s var(--ease);
+}
+.sort.open .sort-item {
+  opacity: 1;
+  transform: none;
+  transition: opacity .3s var(--ease) calc(.06s + var(--k) * .05s), transform .45s var(--out) calc(.06s + var(--k) * .05s), color .3s var(--ease);
+}
+.sort-item[aria-checked="true"] { color: var(--ink); }
+@media (hover: hover) { .sort-item:not(:disabled):hover { color: var(--ink); } }
+.sort-item:focus-visible { color: var(--ink); outline: 1px solid currentColor; outline-offset: -4px; }
+/* «по избранным», когда избранных нет: горит серым и не нажимается */
+.sort-item:disabled { cursor: not-allowed; color: var(--muted); }
+.sort.open .sort-item:disabled { opacity: .45; }
+.sort-ico { flex: none; width: 15px; height: 15px; fill: currentColor; }
+
+@media (max-width: 600px) {
+  .sort { padding: 0 var(--sort-r, 12px); }
+  .sort-btn { gap: 7px; padding: 8px 0 8px 8px; font-size: 12px; }   /* на телефоне подпись остаётся, но компактнее, чем на компьютере */
+  .sort-btn svg { width: 12px; height: 12px; }
+  .sort-menu { right: var(--sort-r, 12px); min-width: min(232px, calc(100vw - 24px)); }
+}
+
+.sort-btn.tap svg { animation: ctlpop .35s var(--ease); }
+.sort-btn.tap .sort-label { animation: ctlsoft .35s var(--ease); }   /* подпись реагирует почти незаметно */
+@keyframes ctlsoft { 0% { scale: 1; } 40% { scale: .985; } 100% { scale: 1; } }

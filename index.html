@@ -22,6 +22,9 @@
     и стирается кнопкой «выйти».
   • Письма: <v>выделение</v>, <u>подчёркивание</u>, <i>курсив</i>, <b>жирный</b>
     и ссылки <a href="https://...">текст</a> (только http/https).
+  • Сортировка: справа над блоком заметок кнопка «сортировка» (на телефоне только значок ⇅). Меню в стиле «что за проект?»:
+    по дате добавления (порядок в letters.enc), по алфавиту, по избранным (неактивна, пока избранных нет).
+    Текущий пункт отмечен полоской слева; выбор хранится в localStorage (ключ "sort").
   • Лицензии: кнопка «L» слева снизу (на одной линии с кнопкой выхода). По нажатию вправо, на одном уровне,
     выезжают две ссылки: ibuzy projects — MIT License (github.com/ibuzy/notes) и шрифт WebPlus IBM MDA — CC BY-SA 4.0
     (int10h.org/oldschool-pc-fonts). Закрываются повторным нажатием, нажатием в другом месте или Esc.
@@ -30,6 +33,10 @@
     Одновременно не больше 3 (на телефоне 2), появляются далеко друг от друга, от планет и созвездий.
   • Чёрные дыры на фоне: пять настоящих (Стрелец A*, M87*, Лебедь X-1, TON 618, Gaia BH1) с вращающимся аккреционным диском,
     ореолом, дугой линзирования и (у M87* и Лебедя X-1) джетами; под каждой подпись. Одновременно не больше одной.
+  • Туманности: самый нижний слой фона (отдельный canvas #neb под основным). Очень тусклые, разных цветов
+    (шесть приглушённых палитр), небольшие; газ в них непрерывно движется (течение, вихрь, расползание краёв),
+    медленно проявляются, дрейфуют, «дышат» и растворяются.
+    Одновременно не больше трёх (экран от 1600px; от 600px — две, на телефоне одна), разных палитр и далеко друг от друга; с остальными объектами не взаимодействуют.
   • Фон: летающие пиксели, настоящие созвездия (50 штук), которые линиями прорисовываются на экране,
     и маленькие пиксельные планеты Солнечной системы (все восемь): появляются в случайное время и в
     случайном месте, не близко к другим планетам и созвездиям.
@@ -87,12 +94,13 @@
     html.booting { overflow: hidden; }
   </style>
   <noscript><style>#boot { display: none; }</style></noscript>
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
   <div id="boot" role="status" aria-label="загрузка"><i></i></div>
 
+  <canvas id="neb" aria-hidden="true"></canvas>
   <canvas id="px" aria-hidden="true"></canvas>
 
   <a class="brand" href="https://t.me/ibuzy" target="_blank" rel="noopener noreferrer" aria-label="ibuzy projects в Telegram">
@@ -204,8 +212,28 @@
     <p class="count" id="count">количество заметок: 0</p>
     <!-- блок заметок + тонкая полоска прокрутки справа (полоска вне блока, чтобы её не гасила маска) -->
     <div class="letters-box">
-      <div class="letters-wrap" id="letters-wrap"><ul class="letters" id="letters"></ul></div>
-      <div class="sbar" id="sbar" aria-hidden="true"><i id="sbar-thumb"></i></div>
+      <!-- сортировка: справа над блоком заметок; на телефоне только значок -->
+      <div class="sort" id="sort">
+        <button class="sort-btn" id="sort-btn" type="button" aria-label="Сортировка" aria-haspopup="true" aria-expanded="false" aria-controls="sort-menu">
+          <span class="sort-label">сортировка</span>
+          <svg viewBox="0 0 11 11" shape-rendering="crispEdges" aria-hidden="true">
+            <path class="up" d="M2 0h1v1h-1zM1 1h3v1h-3zM0 2h5v1h-5zM2 3h1v8h-1z"/>
+            <path class="dn" d="M8 0h1v8h-1zM6 8h5v1h-5zM7 9h3v1h-3zM8 10h1v1h-1z"/>
+          </svg>
+        </button>
+        <div class="sort-menu" id="sort-menu" role="menu" aria-label="Сортировка заметок">
+          <div class="sort-clip"><div class="sort-list">
+            <i class="sort-mark" aria-hidden="true"></i>
+            <button class="sort-item" type="button" role="menuitemradio" aria-checked="true" data-s="date" style="--k:0"><svg class="sort-ico" viewBox="0 0 10 10" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h2v1h-2zM7 0h2v1h-2zM0 1h10v1h-10zM0 2h10v1h-10zM0 3h2v1h-2zM8 3h2v1h-2zM0 4h4v1h-4zM5 4h2v1h-2zM8 4h2v1h-2zM0 5h2v1h-2zM8 5h2v1h-2zM0 6h4v1h-4zM5 6h2v1h-2zM8 6h2v1h-2zM0 7h2v1h-2zM8 7h2v1h-2zM0 8h10v1h-10zM0 9h10v1h-10z"/></svg><span>по дате добавления</span></button>
+            <button class="sort-item" type="button" role="menuitemradio" aria-checked="false" data-s="alpha" style="--k:1"><svg class="sort-ico" viewBox="0 0 10 10" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 0h6v1h-6zM1 1h8v1h-8zM1 2h2v1h-2zM7 2h2v1h-2zM1 3h2v1h-2zM7 3h2v1h-2zM1 4h8v1h-8zM1 5h8v1h-8zM1 6h2v1h-2zM7 6h2v1h-2zM1 7h2v1h-2zM7 7h2v1h-2zM1 8h2v1h-2zM7 8h2v1h-2zM1 9h2v1h-2zM7 9h2v1h-2z"/></svg><span>по алфавиту</span></button>
+            <button class="sort-item" type="button" role="menuitemradio" aria-checked="false" data-s="fav" style="--k:2" disabled><svg class="sort-ico" viewBox="0 0 10 10" shape-rendering="crispEdges" aria-hidden="true"><path d="M1 0h8v1h-8zM1 1h8v1h-8zM1 2h8v1h-8zM1 3h8v1h-8zM1 4h8v1h-8zM1 5h8v1h-8zM1 6h8v1h-8zM1 7h3v1h-3zM6 7h3v1h-3zM1 8h2v1h-2zM7 8h2v1h-2zM1 9h1v1h-1zM8 9h1v1h-1z"/></svg><span>по избранным</span></button>
+          </div></div>
+        </div>
+      </div>
+      <div class="letters-area">
+        <div class="letters-wrap" id="letters-wrap"><ul class="letters" id="letters"></ul></div>
+        <div class="sbar" id="sbar" aria-hidden="true"><i id="sbar-thumb"></i></div>
+      </div>
     </div>
     <p class="note">все заметки зашифрованы. при закрытии сессии избранное будет удалено</p>
   </main>
@@ -317,6 +345,7 @@
         saveFavs();
         syncFav();
         updateMark(curIndex);
+        onFavChange();
         favBtn.classList.remove("pop", "spark");
         void favBtn.offsetWidth;                  // перезапуск анимации
         favBtn.classList.add("pop");
@@ -649,11 +678,13 @@
 
       /* ---------- Список писем на главной ---------- */
       function renderList() {
+        syncSortUi();
         list.textContent = "";
         $("count").textContent = "количество заметок: " + letters.length;
         /* заметки появляются по одной друг за другом; при большом количестве шаг короче, вся очередь укладывается примерно в секунду */
         list.style.setProperty("--step", Math.min(.06, .8 / Math.max(1, letters.length - 1)) + "s");
-        letters.forEach((l, i) => {
+        sortedIndexes().forEach((i, k) => {
+          const l = letters[i];
           const li = document.createElement("li");
           const b = document.createElement("button");
           b.className = "link";
@@ -665,7 +696,7 @@
           b.title = l.title;                              // полное название во всплывающей подсказке
           b.dataset.i = i;
           if (favs.has(favKey(l))) addMark(b);
-          li.style.setProperty("--i", i);
+          li.style.setProperty("--i", k);
           li.appendChild(b);
           list.appendChild(li);
         });
@@ -696,6 +727,18 @@
           }
           span.textContent = chars.slice(0, lo).join("").trimEnd() + "…";
         });
+        alignSort();
+      }
+      /* кнопка сортировки стоит по правой границе самого правого столбика заметок (по краю самой широкой заметки в нём) */
+      function alignSort() {
+        const lis = [...list.children];
+        if (!lis.length) { sortEl.style.removeProperty("--sort-r"); return; }
+        const right = el => el.getBoundingClientRect().right;
+        const edge = Math.max(...lis.map(right));
+        let r = 0;
+        lis.forEach(li => { if (right(li) >= edge - 2) { const b = li.firstElementChild; if (b) r = Math.max(r, right(b)); } });
+        const off = sortEl.getBoundingClientRect().right - r;
+        if (r && off >= 0) sortEl.style.setProperty("--sort-r", off + "px");
       }
       let fitRaf = 0;
       const refit = () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fitTitles); };
@@ -734,6 +777,13 @@
         thumb.style.transform = "translateY(" + ((track - th) * (max ? listWrap.scrollTop / max : 0)) + "px)";
       };
       listWrap.addEventListener("scroll", updateBar, { passive: true });
+      /* пока листают, полоска обычной толщины; через секунду после остановки она становится тоньше (сжимается вправо) */
+      let sbarTimer = 0;
+      listWrap.addEventListener("scroll", () => {
+        sbar.classList.add("act");
+        clearTimeout(sbarTimer);
+        sbarTimer = setTimeout(() => sbar.classList.remove("act"), 900);
+      }, { passive: true });
       if (window.ResizeObserver) { const ro = new ResizeObserver(updateBar); ro.observe(listWrap); ro.observe(list); }
       addEventListener("resize", updateBar);
 
@@ -759,6 +809,51 @@
       const endDrag = () => { grab = null; sbar.classList.remove("drag"); };
       sbar.addEventListener("pointerup", endDrag);
       sbar.addEventListener("pointercancel", endDrag);
+
+      /* ---------- Сортировка заметок ----------
+         date — как лежат в архиве (по дате добавления), alpha — по алфавиту, fav — сначала избранные.
+         «по избранным» неактивна, пока избранных нет. Выбор запоминается на устройстве. */
+      const SORT_NAME = "sort";
+      const sortEl = $("sort"), sortBtn = $("sort-btn"), sortMenu = $("sort-menu");
+      const sortItems = [...sortMenu.querySelectorAll(".sort-item")];
+      const SORTS = sortItems.map(b => b.dataset.s);
+      let sortMode = "date", sortDirty = false;
+      try { const s = localStorage.getItem(SORT_NAME); if (SORTS.includes(s)) sortMode = s; } catch (e) {}
+      const hasFavs = () => letters.some(l => favs.has(favKey(l)));
+      const sortedIndexes = () => {
+        const idx = letters.map((_, i) => i);
+        if (sortMode === "alpha") idx.sort((a, b) => letters[a].title.localeCompare(letters[b].title, "ru", { sensitivity: "base", numeric: true }) || a - b);
+        else if (sortMode === "fav") idx.sort((a, b) => (favs.has(favKey(letters[b])) - favs.has(favKey(letters[a]))) || a - b);
+        return idx;
+      };
+      function syncSortUi() {
+        const any = hasFavs(), favItem = sortItems[SORTS.indexOf("fav")];
+        favItem.disabled = !any;
+        favItem.title = any ? "" : "пока нет избранных заметок";
+        if (sortMode === "fav" && !any) sortMode = "date";      // избранных не осталось: возвращаемся к обычному порядку
+        sortItems.forEach(b => b.setAttribute("aria-checked", b.dataset.s === sortMode));
+        sortMenu.style.setProperty("--si", SORTS.indexOf(sortMode));
+      }
+      function setSortMenu(on) {
+        sortEl.classList.toggle("open", on);
+        sortBtn.setAttribute("aria-expanded", on);
+      }
+      sortBtn.addEventListener("click", () => setSortMenu(!sortEl.classList.contains("open")));
+      sortItems.forEach(b => b.addEventListener("click", () => {
+        if (b.disabled) return;
+        sortMode = b.dataset.s;
+        try { localStorage.setItem(SORT_NAME, sortMode); } catch (e) {}
+        setSortMenu(false);
+        sortDirty = false;
+        renderList();
+        listWrap.scrollTop = 0;
+      }));
+      document.addEventListener("pointerdown", e => {
+        if (sortEl.classList.contains("open") && !e.target.closest(".sort")) setSortMenu(false);
+      });
+      document.addEventListener("keydown", e => { if (e.key === "Escape") setSortMenu(false); });
+      /* избранное поменялось (в открытой заметке): обновляем доступность пункта; список перестроится, когда заметку закроют */
+      const onFavChange = () => { const was = sortMode; syncSortUi(); if (was === "fav") sortDirty = true; };
 
       list.addEventListener("click", e => {
         const b = e.target.closest("[data-i]");
@@ -839,13 +934,27 @@
       /* слушатель на документе срабатывает после обработчика самой кнопки,
          поэтому при включении звука кнопка щёлкает сразу, а при выключении — молчит */
       document.addEventListener("click", e => { if (e.target.closest("button, input[type=checkbox]")) playClick(); });
+      /* плавная анимация нажатия у кнопок управления (шестерёнка, тема, анимации, звук, пустота, выход, лицензии) */
+      document.addEventListener("click", e => {
+        const b = e.target.closest(".theme-toggle, .motion-toggle, .sound-toggle, .logout-toggle, .peek-toggle, .gear-toggle, .lic-toggle, .sort-btn");
+        if (!b) return;
+        b.classList.remove("tap");
+        void b.offsetWidth;                       // перезапуск анимации
+        b.classList.add("tap");
+        clearTimeout(b._tapT);
+        b._tapT = setTimeout(() => b.classList.remove("tap"), 650);   // страховка: размер всегда возвращается к исходному
+      });
+      document.addEventListener("animationend", e => { if (e.animationName === "ctlpop" || e.animationName === "ctlsoft") e.target.closest("button")?.classList.remove("tap"); });
 
       /* ---------- Логотип уезжает вверх и гаснет, пока листается письмо ----------
          На телефоне вместе с ним уезжают и кнопки управления (тема, анимации, звук, выйти). */
       const brand = document.querySelector(".brand");
-      const ctrls = [...document.querySelectorAll(".theme-toggle, .motion-toggle, .sound-toggle, .logout-toggle, .gear-toggle")];
+      const ctrls = [...document.querySelectorAll(".theme-toggle, .motion-toggle, .sound-toggle, .logout-toggle, .peek-toggle, .gear-toggle")];
       const phone = matchMedia("(max-width: 600px)");
-      const resetAway = () => [brand, ...ctrls].forEach(el => { el.style.transform = el.style.opacity = el.style.pointerEvents = ""; });
+      const resetAway = () => [brand, ...ctrls].forEach(el => {
+        el.style.transform = el.style.opacity = el.style.pointerEvents = el.style.translate = "";
+        el.style.removeProperty("--fade");
+      });
       function scrollAway() {
         /* двигаем логотип и кнопки только пока заметка открыта. После закрытия просмотрщик ещё какое-то время
            остаётся в странице и может менять scrollTop (прячется адресная строка на телефоне, подрезается прокрутка) —
@@ -858,7 +967,14 @@
           el.style.pointerEvents = on && y > 30 ? "none" : "";
         };
         move(brand, true);
-        ctrls.forEach(b => move(b, phone.matches));
+        /* кнопки управления сдвигаем свойствами translate и --fade, а не transform и opacity: иначе они перебивали бы
+           анимацию выезда кнопок из шестерёнки (меню раскрывалось бы без анимации, если страница чуть прокручена) */
+        ctrls.forEach(b => {
+          const on = phone.matches && y > 0;
+          b.style.translate = on ? `0 ${-y}px` : "";
+          if (on) b.style.setProperty("--fade", Math.max(0, 1 - y / 50)); else b.style.removeProperty("--fade");
+          b.style.pointerEvents = phone.matches && y > 30 ? "none" : "";
+        });
       }
       viewer.addEventListener("scroll", scrollAway, { passive: true });
       phone.addEventListener("change", scrollAway);
@@ -934,6 +1050,7 @@
         viewer.setAttribute("aria-hidden", "true");
         document.body.classList.remove("reading");
         resetAway();                              // логотип и кнопки (на телефоне) возвращаются на место, а не только логотип
+        if (sortDirty) { sortDirty = false; renderList(); }   // порядок «по избранным» мог измениться, пока заметка была открыта
         setTimeout(() => { if (!viewer.classList.contains("open")) viewer.scrollTop = 0; }, 1050);   // когда окно уже скрыто, сбрасываем старую прокрутку
         if (lastTrigger) lastTrigger.focus({ preventScroll: true });
         if (!fromPopState && history.state && history.state.letter !== undefined) history.back();
@@ -1006,15 +1123,45 @@
         function drawComet(q, dt, t) {
           q.life += dt;
           const L = q.life;
-          q.x = q.x0 + q.dir * q.vx * L;
-          q.y = q.y0 + q.vy0 * L + .5 * q.g * L * L;
+          /* движение считается по шагам (скорость + ускорение), а не по готовой параболе: так чёрная дыра может искривить путь кометы.
+             Без дыры получается ровно та же парабола: по горизонтали равномерно, вниз с постоянным ускорением */
+          if (q.pvx === undefined) { q.pvx = q.dir * q.vx; q.pvy = q.vy0; q.x = q.x0; q.y = q.y0; }
+          if (q.boom === undefined) {
+            q.pvy += q.g * dt;
+            for (const w of wells) {
+              const wx = w.x - q.x, wy = w.y - q.y, wd = Math.hypot(wx, wy) || 1;
+              if (wd > w.R * 1.15) continue;
+              const u = 1 - wd / (w.R * 1.15), a = (60 + 2600 * u * u) * w.k;
+              q.pvx += wx / wd * a * dt; q.pvy += wy / wd * a * dt;
+              if (wd < w.rc + 4) {                                              // долетела до тени — взрыв
+                q.boom = 0;
+                q.parts = [];
+                for (let i = 0; i < 24; i++) q.parts.push({ ang: rnd(0, 6.283), sp: rnd(.5, 1.5) * 56, sz: rnd(1.5, 3.2), tone: Math.random() });
+                break;
+              }
+            }
+            if (q.boom === undefined) {
+              q.x += q.pvx * dt; q.y += q.pvy * dt;
+              /* комета врезалась в планету: планета в месте удара крошится, комета взрывается */
+              for (const pl of planets) {
+                const pcx = pl.x + Math.sin(t * pl.f + pl.p) * pl.amp + pl.pw / 2, pcy = pl.y + pl.ph / 2;
+                if (Math.hypot(q.x - pcx, q.y - pcy) < Math.min(pl.pw, pl.ph) / 2 * .9 + 2) {
+                  hitPlanet(pl, q, t);
+                  q.boom = 0;
+                  q.parts = [];
+                  for (let i = 0; i < 24; i++) q.parts.push({ ang: rnd(0, 6.283), sp: rnd(.5, 1.5) * 56, sz: rnd(1.5, 3.2), tone: Math.random() });
+                  break;
+                }
+              }
+            }
+          }
           if (q.y > H + 40 || q.x < -60 || q.x > W + 60) return true;       // ушла за край — убираем
-          const vx = q.dir * q.vx, vy = q.vy0 + q.g * L;
+          const vx = q.pvx, vy = q.pvy;
           const sp = Math.hypot(vx, vy) || 1;
           const ux = vx / sp, uy = vy / sp, nx = -uy, ny = ux;              // направление движения и перпендикуляр
 
           // точки хвоста оставляются на пройденном пути; их разброс и жизнь неровные, поэтому края хвоста рваные
-          q.acc += dt * 110;
+          if (q.boom === undefined) q.acc += dt * 110;
           while (q.acc >= 1) {
             q.acc -= 1;
             q.trail.push({ x: q.x, y: q.y, nx, ny, age: 0, life: rnd(.55, .95), r: rnd(-1, 1), tone: Math.random(), sz: rnd(1.6, 3) });
@@ -1043,6 +1190,35 @@
           }
 
           const gx = Math.round(q.x * D), gy = Math.round(q.y * D);
+          if (q.boom !== undefined) {                                           // взрыв: вспышка, кольцо, разлетающиеся осколки; хвост ещё догорает
+            q.boom += dt;
+            const e = Math.min(1, q.boom / 1.2), ease = 1 - Math.pow(1 - e, 2.2), flash = Math.max(0, 1 - e / .15);
+            const hot = mixC([r, g, b], [255, 244, 214], .45 + .5 * flash);
+            const R = (16 + ease * 54) * D, gr = ctx.createRadialGradient(gx, gy, 0, gx, gy, R);
+            const ga = (.55 * Math.pow(1 - e, 1.5) + .5 * flash) * Math.min(1, edge * 3);
+            gr.addColorStop(0, rgba(hot, ga));
+            gr.addColorStop(.35, rgba(hot, ga * .45));
+            gr.addColorStop(1, rgba(hot, 0));
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = gr;
+            ctx.fillRect(gx - R, gy - R, R * 2, R * 2);
+            const cs2 = Math.max(1, Math.round(2 * D)), rr = (3 + ease * 46) * D;
+            ctx.fillStyle = rgba(hot, 1);
+            ctx.globalAlpha = .7 * Math.pow(1 - e, 1.4);
+            for (let i = 0; i < 32; i++) {
+              if ((i * 5) % 7 === 0) continue;
+              const an = i / 32 * 6.283;
+              ctx.fillRect(Math.round(gx + Math.cos(an) * rr), Math.round(gy + Math.sin(an) * rr), cs2, cs2);
+            }
+            for (const pt of q.parts) {
+              const dd = pt.sp * ease * D, sz = Math.max(1, Math.round(pt.sz * (1 - e * .6) * D));
+              ctx.fillStyle = rgba(pt.tone > .55 ? hot : [r, g, b], 1);
+              ctx.globalAlpha = Math.pow(1 - e, 1.2) * .9;
+              ctx.fillRect(Math.round(gx + Math.cos(pt.ang) * dd), Math.round(gy + Math.sin(pt.ang) * dd), sz, sz);
+            }
+            ctx.restore();
+            return q.boom >= 1.2;
+          }
           // кома: слабая дымка вокруг ядра, смещённая назад
           ctx.fillStyle = `rgb(${r},${g},${b})`;
           for (let i = 0; i < 14; i++) {
@@ -1399,6 +1575,7 @@
           d.haloColor = d.groups.reduce((m, g) => g[1].length > m[1].length ? g : m)[0];
         }
         const planets = [];
+        const debris = [];                                          // пиксели разрушенных планет, летящие в чёрную дыру
         let nextPlanet = 0, nextComet = 0;
         const maxPlanets = () => (W < 600 ? 2 : 3);
         const maxComets = () => (W < 600 ? 2 : 3);
@@ -1431,23 +1608,81 @@
           return null;
         }
 
+        /* чёрная дыра притягивает планету (медленнее, чем звёзды). Когда планета подходит близко, она рассыпается по пикселям:
+           клетки отрываются начиная с ближайших к дыре и по спирали улетают в неё */
+        function startCrumble(q, w) {
+          const cells = [];
+          for (const [col, xy] of q.d.groups) for (let i = 0; i < xy.length; i += 2) {
+            if (q.gone && q.gone.has(xy[i + 1] * 100 + xy[i])) continue;           // клетки, уже отбитые кометой
+            const cx = q.x + (xy[i] + .5) * CELL, cy = q.y + (xy[i + 1] + .5) * CELL;
+            cells.push({ x: xy[i], y: xy[i + 1], col, k: Math.hypot(w.x - cx, w.y - cy) + rnd(0, CELL * 2.5) });
+          }
+          cells.sort((a, b) => a.k - b.k);
+          q.crumble = { cells, rel: 0, acc: 0, total: cells.length, rate: cells.length / 2.4 };
+          q.gone = q.gone || new Set();
+        }
+        /* удар кометы: клетки вокруг точки удара отрываются и разлетаются от неё, остальная планета остаётся целой (с выбоиной) */
+        function hitPlanet(pl, c, t) {
+          pl.gone = pl.gone || new Set();
+          const ox = pl.x + Math.sin(t * pl.f + pl.p) * pl.amp, rI = Math.max(2.4, Math.min(pl.d.w, pl.d.h) * .24) * CELL * rnd(.9, 1.2);
+          for (const [col, xy] of pl.d.groups) for (let i = 0; i < xy.length; i += 2) {
+            const key = xy[i + 1] * 100 + xy[i];
+            if (pl.gone.has(key)) continue;
+            const cx = ox + (xy[i] + .5) * CELL, cy = pl.y + (xy[i + 1] + .5) * CELL, dd = Math.hypot(cx - c.x, cy - c.y);
+            if (dd >= rI) continue;
+            pl.gone.add(key);
+            const k = rnd(40, 110) / (dd || 1);
+            debris.push({ x: cx, y: cy, vx: (cx - c.x) * k + c.pvx * .15, vy: (cy - c.y) * k + c.pvy * .15, col, fade: 0, scatter: true });
+          }
+        }
         function drawPlanet(q, t, dt) {
           q.y -= q.v * dt;
           if (q.y + q.ph + 12 < 0) return true;
+          for (const w of wells) {
+            const wx = w.x - (q.x + q.pw / 2), wy = w.y - (q.y + q.ph / 2), wd = Math.hypot(wx, wy) || 1;
+            if (wd > w.R * 1.4) continue;
+            const u = 1 - wd / (w.R * 1.4), sp = (4 + 100 * u * u) * w.k * dt;
+            q.x += wx / wd * sp; q.y += wy / wd * sp;
+            if (!q.crumble && wd < w.R * .75) startCrumble(q, w);
+          }
+          const cr = q.crumble;
+          if (cr) {
+            cr.acc += cr.rate * dt;
+            while (cr.acc >= 1 && cr.rel < cr.total) {
+              cr.acc -= 1;
+              const c = cr.cells[cr.rel++];
+              q.gone.add(c.y * 100 + c.x);
+              debris.push({ x: q.x + Math.sin(t * q.f + q.p) * q.amp + (c.x + .5) * CELL, y: q.y + (c.y + .5) * CELL, vx: rnd(-8, 8), vy: -q.v, col: c.col, fade: 0 });
+            }
+            if (cr.rel >= cr.total) return true;               // планета разрушена целиком
+          }
+          const frac = cr ? 1 - cr.rel / cr.total : 1;
+          const gone = q.gone || null;
           const edge = Math.min(H * .2, 120);
           const a = clamp01((H - q.y) / edge) * clamp01((q.y + q.ph + 12) / edge);
           if (a <= .01) return false;
           const ox = Math.round((q.x + Math.sin(t * q.f + q.p) * q.amp) * D), oy = Math.round(q.y * D);
           const cs = Math.round(CELL * D);
-          ctx.globalAlpha = a * .55;
+          /* планета лежит выше звёзд и созвездий: под силуэтом стираем то, что нарисовано раньше */
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.fillStyle = "#000";
+          ctx.globalAlpha = a;
+          for (const [, xy] of q.d.groups) for (let i = 0; i < xy.length; i += 2) {
+            if (gone && gone.has(xy[i + 1] * 100 + xy[i])) continue;
+            ctx.fillRect(ox + xy[i] * cs, oy + xy[i + 1] * cs, cs, cs);
+          }
+          ctx.globalCompositeOperation = "source-over";
           /* лёгкая анимация: атмосфера «дышит» (слабый ореол в одну клетку вокруг силуэта) */
-          ctx.globalAlpha = a * (.11 + .08 * Math.sin(t * .8 + q.p));
+          ctx.globalAlpha = a * frac * (.11 + .08 * Math.sin(t * .8 + q.p));
           ctx.fillStyle = q.d.haloColor;
           for (const [hx, hy] of q.d.halo) ctx.fillRect(ox + hx * cs, oy + hy * cs, cs, cs);
           ctx.globalAlpha = a * .55;
           for (const [col, xy] of q.d.groups) {
             ctx.fillStyle = col;
-            for (let i = 0; i < xy.length; i += 2) ctx.fillRect(ox + xy[i] * cs, oy + xy[i + 1] * cs, cs, cs);
+            for (let i = 0; i < xy.length; i += 2) {
+              if (gone && gone.has(xy[i + 1] * 100 + xy[i])) continue;
+              ctx.fillRect(ox + xy[i] * cs, oy + xy[i + 1] * cs, cs, cs);
+            }
           }
           /* и по поверхности медленно проходит светлая полоска: словно планета вращается и ловит свет */
           const sweep = ((t * 1.5 + q.p * 3) % (q.d.w + 8)) - 4;
@@ -1455,24 +1690,110 @@
           for (const [, xy] of q.d.groups) {
             for (let i = 0; i < xy.length; i += 2) {
               const k = 1 - Math.abs(xy[i] + .5 - sweep) / 1.6;
-              if (k <= 0) continue;
+              if (k <= 0 || (gone && gone.has(xy[i + 1] * 100 + xy[i]))) continue;
               ctx.globalAlpha = a * .3 * k;
               ctx.fillRect(ox + xy[i] * cs, oy + xy[i + 1] * cs, cs, cs);
             }
           }
           /* название: впритык под планетой, того же размера и вида, что у созвездий */
           ctx.fillStyle = color;
-          ctx.globalAlpha = a * .5;
+          ctx.globalAlpha = a * .5 * frac;
           ctx.font = labelFont();
           ctx.textBaseline = "top";
           ctx.fillText(q.d.n, ox, oy + Math.round((q.ph + 3) * D));
           return false;
         }
 
+        /* обломки планет: летят к ближайшей дыре по спирали, ускоряясь; у самой тени исчезают (дыра нарисована поверх) */
+        function drawDebris(dt) {
+          const cs = Math.max(1, Math.round(CELL * D));
+          for (let i = debris.length - 1; i >= 0; i--) {
+            const p = debris[i];
+            if (p.scatter) {                                       // осколки удара: разлетаются, тормозят и гаснут
+              p.fade += dt;
+              if (p.fade > 1.1) { debris.splice(i, 1); continue; }
+              const damp = Math.exp(-dt * 2.2);
+              p.vx *= damp; p.vy *= damp;
+              p.x += p.vx * dt; p.y += p.vy * dt;
+              ctx.globalAlpha = .55 * (1 - p.fade / 1.1);
+              ctx.fillStyle = p.col;
+              ctx.fillRect(Math.round(p.x * D - cs / 2), Math.round(p.y * D - cs / 2), cs, cs);
+              continue;
+            }
+            let best = null, bd = Infinity;
+            for (const w of wells) { const dd = Math.hypot(w.x - p.x, w.y - p.y); if (dd < bd) { bd = dd; best = w; } }
+            let sf = 1, al = .55;
+            if (best) {
+              /* движение по спирали задаётся напрямую (радиус и угол вокруг дыры), а не силами: радиус только уменьшается,
+                 поэтому каждый обломок гарантированно падает в дыру, а не улетает по касательной. Чем ближе, тем быстрее и круче закручивается */
+              let r = Math.hypot(p.x - best.x, p.y - best.y) || 1, ang = Math.atan2(p.y - best.y, p.x - best.x);
+              const u = clamp01(1 - r / (best.R * 1.3));
+              r -= (25 + 900 * u * u) * best.k * dt;
+              ang += Math.min(10, 110 / Math.max(r, 12)) * dt;
+              if (r < best.rc * .7) { debris.splice(i, 1); continue; }
+              p.x = best.x + Math.cos(ang) * r;
+              p.y = best.y + Math.sin(ang) * r;
+              sf = clamp01((r - best.rc * .6) / (best.rc * 1.2 + 10));
+              ctx.globalAlpha = al;
+              ctx.fillStyle = p.col;
+              const s0 = Math.max(1, Math.round(cs * (.4 + .6 * sf)));
+              ctx.fillRect(Math.round(p.x * D - s0 / 2), Math.round(p.y * D - s0 / 2), s0, s0);
+              continue;
+            } else {                                              // дыры больше нет рядом: обломки просто гаснут
+              p.fade += dt;
+              if (p.fade > .6) { debris.splice(i, 1); continue; }
+              al *= 1 - p.fade / .6;
+            }
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            const s = Math.max(1, Math.round(cs * (.4 + .6 * sf)));
+            ctx.globalAlpha = al;
+            ctx.fillStyle = p.col;
+            ctx.fillRect(Math.round(p.x * D - s / 2), Math.round(p.y * D - s / 2), s, s);
+          }
+        }
+
 
         /* общие помощники для звёзд и чёрных дыр: смешение цветов и css-цвет с прозрачностью */
         const mixC = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
         const rgba = (c, a) => `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${Math.max(0, Math.min(1, a))})`;
+
+        /* Гравитационная линза: всё, что уже нарисовано вокруг дыры (пиксели, кометы, созвездия, звёзды, планеты), перерисовывается
+           кольцами с плавно меняющимся увеличением и лёгким закручиванием: чем ближе к дыре, тем сильнее изображение растянуто
+           наружу и повёрнуто. Вдали от дыры (на краю круга) искажения нет, поэтому шва не видно. Размеры в пикселях canvas. */
+        const lensCv = document.createElement("canvas"), lensCtx = lensCv.getContext("2d");
+        function lensWarp(cx, cy, Rl, rIn, k) {
+          const x0 = Math.max(0, Math.floor(cx - Rl)), y0 = Math.max(0, Math.floor(cy - Rl));
+          const x1 = Math.min(cv.width, Math.ceil(cx + Rl)), y1 = Math.min(cv.height, Math.ceil(cy + Rl));
+          const w = x1 - x0, hh = y1 - y0;
+          if (w < 8 || hh < 8 || k <= .02) return;
+          if (lensCv.width < w) lensCv.width = w;
+          if (lensCv.height < hh) lensCv.height = hh;
+          lensCtx.clearRect(0, 0, lensCv.width, lensCv.height);
+          lensCtx.drawImage(cv, x0, y0, w, hh, 0, 0, w, hh);                // снимок области вокруг дыры
+          const n = 20, ox = cx - x0, oy = cy - y0;
+          ctx.save();
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = "source-over";
+          ctx.imageSmoothingEnabled = false;                                   // пиксельная графика остаётся чёткой
+          for (let i = 0; i < n; i++) {
+            const ro = Rl * (1 - i / n), ri = Rl * (1 - (i + 1) / n), rm = (ro + ri) / 2;
+            if (ro < rIn) break;                                               // дальше только тень дыры
+            const u = rm / Rl, f = Math.pow(1 - u, 2.2);
+            const s = 1 - .42 * k * f;                                         // <1: изображение увеличено и выдвинуто наружу
+            const th = .5 * k * f;                                             // поворот: пространство слегка закручено
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, ro, 0, 6.2832);
+            ctx.arc(cx, cy, Math.max(0, ri), 0, 6.2832, true);
+            ctx.clip();
+            ctx.clearRect(cx - ro - 1, cy - ro - 1, ro * 2 + 2, ro * 2 + 2);   // убираем неискажённое, вместо него — искажённое
+            ctx.translate(cx, cy);
+            ctx.rotate(-th);
+            ctx.drawImage(lensCv, ox - ro * s, oy - ro * s, ro * 2 * s, ro * 2 * s, -ro, -ro, ro * 2, ro * 2);
+            ctx.restore();
+          }
+          ctx.restore();
+        }
 
         /* ---------- Чёрные дыры ----------
            Пять настоящих чёрных дыр: Стрелец A*, M87*, Лебедь X-1, TON 618 и Gaia BH1.
@@ -1495,6 +1816,7 @@
           d.rout = d.N / 2 - .3;                                  // внешний край диска
         }
         const holes = [];
+        const wells = [];                                         // «колодцы» тяготения чёрных дыр на текущий кадр (координаты центра в css px)
         let nextHole = 0;
         const maxHoles = () => 1;                               // на сайте не больше одной чёрной дыры
 
@@ -1565,7 +1887,14 @@
           const cx = ox + N * cs / 2, cy = oy + N * cs / 2;
           const dark = root.dataset.theme === "dark";
           const K = fade * .8;                                    // общая приглушённость: чёрные дыры не должны перетягивать внимание
+          lensWarp(cx, cy, (70 + q.pw * .9) * 1.4 * D, d.rs * cs * .9, fade);
           ctx.save();
+          /* дыра лежит выше всего остального: под её силуэтом стираем то, что нарисовано раньше (планеты, звёзды, созвездия) */
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.fillStyle = "#000";
+          ctx.globalAlpha = Math.min(1, fade * 1.2);
+          for (const c of q.cells) ctx.fillRect(ox + c.x * cs, oy + c.y * cs, cs, cs);
+          ctx.globalCompositeOperation = "source-over";
 
           /* ореол: очень мягкий, слабо пульсирует */
           const gr = N * cs * .9;
@@ -1576,6 +1905,7 @@
           ctx.globalAlpha = 1;
           ctx.fillStyle = g;
           ctx.fillRect(cx - gr, cy - gr, gr * 2, gr * 2);
+
 
           /* джеты: тонкие пульсирующие струи вдоль оси диска, один цвет */
           if (d.jets) {
@@ -1660,6 +1990,16 @@
         function drawStar(q, dt, t) {
           q.age += dt; q.x += q.vx * dt; q.y += q.vy * dt;
           if (q.y < -40) return true;
+          /* звезда рядом с чёрной дырой тоже притягивается; долетев до тени, взрывается (раньше срока) */
+          if (q.age < q.L) {
+            for (const w of wells) {
+              const wx = w.x - q.x, wy = w.y - q.y, wd = Math.hypot(wx, wy) || 1;
+              if (wd > w.R * 1.4) continue;
+              const u = 1 - wd / (w.R * 1.4), sp = (8 + 320 * u * u) * w.k * dt * .7;
+              q.x += wx / wd * sp; q.y += wy / wd * sp;
+              if (q.age > 1 && wd < w.rc + 8) { q.L = q.age; q.vx = q.vy = 0; break; }
+            }
+          }
           const a = q.age, L = q.L, SH = 2.6, EX = 1.8;
           if (a >= L + EX) return true;
           const dark = root.dataset.theme === "dark";
@@ -1704,9 +2044,15 @@
             ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
           };
           const core = (nCells, c, al) => {                          // круглое ядро из квадратных клеток
+            const w = nCells * cs, x0 = cx - Math.floor(w / 2), y0 = cy - Math.floor(w / 2);
+            const comp = ctx.globalCompositeOperation;
+            ctx.globalCompositeOperation = "destination-out";        // ядро звезды перекрывает созвездия под ним
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "#000";
+            for (let y = 0; y < nCells; y++) for (let x = 0; x < nCells; x++) if (inDisc(nCells, x, y)) ctx.fillRect(x0 + x * cs, y0 + y * cs, cs, cs);
+            ctx.globalCompositeOperation = comp;
             ctx.globalAlpha = Math.max(0, Math.min(1, al));
             ctx.fillStyle = rgba(c, 1);
-            const w = nCells * cs, x0 = cx - Math.floor(w / 2), y0 = cy - Math.floor(w / 2);
             for (let y = 0; y < nCells; y++) for (let x = 0; x < nCells; x++) if (inDisc(nCells, x, y)) ctx.fillRect(x0 + x * cs, y0 + y * cs, cs, cs);
           };
 
@@ -1784,11 +2130,18 @@
           const t = now / 1000;
           ctx.clearRect(0, 0, cv.width, cv.height);
           ctx.fillStyle = color;
+          /* колодцы тяготения: центр, радиус влияния, радиус «захвата» (чуть больше тени) и заметность дыры (затухает у краёв экрана) */
+          wells.length = 0;
+          for (const q of holes) {
+            const edge = Math.min(H * .2, 120);
+            const f = clamp01((H - q.y) / edge) * clamp01((q.y + q.ph + 14) / edge);
+            if (f < .4) continue;
+            wells.push({ x: q.x + Math.sin(t * q.f + q.p) * q.amp + q.pw / 2, y: q.y + q.ph / 2, R: 70 + q.pw * .9, rc: q.d.rs * CELL * 1.1, k: f });
+          }
           if (t >= nextStar) {                                  // новая звезда загорается на экране далеко от остальных
             if (stars.length < maxStars()) { const q = spawnStar(); if (q) stars.push(q); }
             nextStar = t + rnd(2.5, 6);
           }
-          for (let i = stars.length - 1; i >= 0; i--) if (drawStar(stars[i], dt, t)) stars.splice(i, 1);
           if (t >= nextPlanet) {                                // новая планета в случайный момент
             if (planets.length < maxPlanets()) { const q = spawnPlanet(false); if (q) planets.push(q); }
             nextPlanet = t + rnd(7, 18);
@@ -1799,14 +2152,10 @@
           }
           if (t >= nextComet) {
             if (comets.length < maxComets()) comets.push(spawnComet());
-            nextComet = t + rnd(3.8, 7.2);
+            nextComet = t + rnd(6.5, 11);
           }
-          for (let i = comets.length - 1; i >= 0; i--) if (drawComet(comets[i], dt, t)) comets.splice(i, 1);
-          for (let i = holes.length - 1; i >= 0; i--) if (drawHole(holes[i], t, dt)) holes.splice(i, 1);
-          for (let i = planets.length - 1; i >= 0; i--) if (drawPlanet(planets[i], t, dt)) planets.splice(i, 1);
-          for (let i = 0; i < sky.length; i++) {
-            if (drawSky(sky[i], t, dt)) sky[i] = spawnSky(false);
-          }
+          /* слои снизу вверх: летающие пиксели, кометы, созвездия, звёзды, планеты, чёрные дыры.
+             Каждый верхний слой перекрывает нижние (под силуэтом ластиком стирается всё, что нарисовано раньше) */
           for (let i = 0; i < dots.length; i++) {
             const p = dots[i];
             p.y -= p.v * dt;
@@ -1814,6 +2163,23 @@
 
             const x = p.x + Math.sin(t * p.f + p.p) * p.amp + p.ox;
             const y = p.y + p.oy;
+            /* чёрные дыры притягивают пиксели по спирали (чем ближе, тем сильнее); у самой тени пиксель растворяется.
+               Искривление света вокруг дыры рисует lensWarp */
+            let live = 1, lx = 0, ly = 0;
+            for (const w of wells) {
+              const wx = w.x - x, wy = w.y - y, wd2 = wx * wx + wy * wy;
+              if (wd2 > w.R * w.R) continue;
+              const wd = Math.sqrt(wd2) || 1, u = 1 - wd / w.R, nx = wx / wd, ny = wy / wd;
+              const sp = (30 + 420 * u * u) * w.k * dt;
+              p.x += nx * sp - ny * sp * .45;
+              p.y += ny * sp + nx * sp * .45;
+              if (wd < w.rc && !p.dying) p.dying = .0001;
+            }
+            if (p.dying) {
+              p.dying += dt;
+              if (p.dying > .4) { dots[i] = spawn(false); continue; }
+              live = 1 - p.dying / .4;
+            }
             const dx = x - mx, dy = y - my, d2 = dx * dx + dy * dy;
             if (d2 < 10000 && d2 > .01) {                 // курсор отталкивает в радиусе 100px
               const d = Math.sqrt(d2), k = (100 - d) / 100 * 220 * dt;
@@ -1824,10 +2190,19 @@
             p.ox *= damp; p.oy *= damp;
 
             const tw = (Math.sin(t * p.tw + p.tp) + 1) / 2;                        // плавное мерцание
-            ctx.globalAlpha = p.a * (.35 + .65 * tw);
-            const s = Math.round(p.s * D);
-            ctx.fillRect(Math.round(x * D), Math.round(y * D), s, s);
+            ctx.globalAlpha = p.a * (.35 + .65 * tw) * live;
+            const s = Math.max(1, Math.round(p.s * D * live));
+            ctx.fillRect(Math.round((x + lx) * D), Math.round((y + ly) * D), s, s);
           }
+          for (let i = comets.length - 1; i >= 0; i--) if (drawComet(comets[i], dt, t)) comets.splice(i, 1);
+          ctx.globalAlpha = 1; ctx.fillStyle = color;
+          for (let i = 0; i < sky.length; i++) {
+            if (drawSky(sky[i], t, dt)) sky[i] = spawnSky(false);
+          }
+          for (let i = stars.length - 1; i >= 0; i--) if (drawStar(stars[i], dt, t)) stars.splice(i, 1);
+          for (let i = planets.length - 1; i >= 0; i--) if (drawPlanet(planets[i], t, dt)) planets.splice(i, 1);
+          drawDebris(dt);
+          for (let i = holes.length - 1; i >= 0; i--) if (drawHole(holes[i], t, dt)) holes.splice(i, 1);
           raf = requestAnimationFrame(frame);
         }
 
@@ -1852,6 +2227,140 @@
         addEventListener("pointerup", e => { if (e.pointerType !== "mouse") away(); });
         addEventListener("pointercancel", away);
         resize();
+        sync();
+      })();
+
+      /* ---------- Туманности ----------
+         Самый нижний слой (canvas #neb под #px). Небольшие, очень тусклые, разных цветов, одновременно не больше 3 (на телефоне 1),
+         с объектами не взаимодействуют. Облако газа пересчитывается на мелкой сетке ~30 раз в секунду:
+         слои шума течут в разные стороны, облако закручивается, клубы рвутся и срастаются, края расползаются —
+         как будто газ распыляется. Растягивается браузером со сглаживанием, поэтому выглядит мягким дымом. */
+      (() => {
+        const cv = $("neb"), ctx = cv.getContext("2d");
+        const rnd = (a, b) => a + Math.random() * (b - a);
+        const PAL = [   // [основной, второй, светлые прожилки] — приглушённые, чтобы не пересвечивать объекты
+          [[90, 60, 200], [200, 60, 140], [170, 150, 230]],    // фиолетово-розовая
+          [[40, 100, 200], [40, 170, 170], [130, 180, 220]],   // сине-бирюзовая
+          [[200, 70, 50],  [210, 130, 50], [220, 170, 140]],   // огненная
+          [[40, 160, 110], [70, 100, 200], [130, 200, 170]],   // изумрудно-синяя
+          [[180, 55, 110], [120, 55, 190], [210, 150, 190]],   // малиново-лиловая
+          [[210, 150, 55], [200, 85, 75],  [225, 195, 140]]    // золотисто-красная
+        ];
+        const GW = 72, STEP = 1 / 30;
+        let W = 0, H = 0, list = [], next = 0, raf = 0, last = 0;
+        const maxNeb = () => W < 600 ? 1 : W < 1600 ? 2 : 3;   // на телефоне одна, на обычном экране две, на большом три
+
+        function hash(x, y, s) { let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 1442695041)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
+        function vnoise(x, y, s) {
+          const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+          const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+          const a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s);
+          return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+        }
+        function fbm(x, y, s, oct) { let a = .5, f = 1, r = 0, n = 0; for (let i = 0; i < oct; i++) { r += a * vnoise(x * f, y * f, s + i * 17); n += a; a *= .5; f *= 2.03; } return r / n; }
+
+        function build() {
+          let i, tries = 0;   // палитра, которой нет у других живых туманностей
+          do i = (Math.random() * PAL.length) | 0; while (list.some(o => o.pi === i) && ++tries < 30);
+          const w = Math.round(Math.min(Math.max(rnd(.17, .26) * Math.max(W, H), 200), W * .7)), h = Math.round(w * rnd(.7, 1));
+          const gh = Math.max(24, Math.round(GW * h / w));
+          const off = document.createElement("canvas"); off.width = GW; off.height = gh;
+          const oc = off.getContext("2d");
+          const margin = .1;
+          let bx = 0, by = 0, best = -1;   // из нескольких случайных мест берём самое далёкое от других туманностей
+          for (let k = 0; k < 12; k++) {
+            const x = rnd(-w * margin, W - w * (1 - margin)), y = rnd(-h * margin, H - h * (1 - margin));
+            let dmin = 1e9;
+            for (const o of list) dmin = Math.min(dmin, Math.hypot(x + w / 2 - o.x - o.w / 2, y + h / 2 - o.y - o.h / 2));
+            if (dmin > best) { best = dmin; bx = x; by = y; }
+          }
+          return {
+            off, oc, img: oc.createImageData(GW, gh), gh, w, h, pal: PAL[i], pi: i,
+            seed: (Math.random() * 1e6) | 0, sc: rnd(2.0, 3.0), sx: rnd(.85, 1.25),
+            rot: rnd(0, 6.28), sw: rnd(.25, .5) * (Math.random() < .5 ? -1 : 1),            // сила закручивания
+            fx: rnd(.05, .11), fy: rnd(.04, .09), ph: rnd(0, 6.28),                         // скорости течения слоёв
+            x: bx, y: by,
+            vx: rnd(-1.4, 1.4), vy: rnd(-1.1, 1.1),
+            life: rnd(55, 90), fade: rnd(8, 12), peak: rnd(.07, .11), br: rnd(0, 6.28), bf: rnd(.1, .22),
+            t0: 0, acc: rnd(0, STEP)
+          };
+        }
+
+        /* пересчёт газа в момент T (секунды жизни туманности) */
+        function fill(q, T) {
+          const gw = GW, gh = q.gh, px = q.img.data, pal = q.pal, sd = q.seed, sc = q.sc;
+          const cr = Math.cos(q.rot), sr = Math.sin(q.rot);
+          const sw = q.sw * Math.sin(T * .09 + q.ph);                       // закрутка то в одну, то в другую сторону
+          const ax = T * q.fx, ay = T * q.fy;
+          for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+            const nx = (x / gw - .5) * 2, ny = (y / gh - .5) * 2;
+            const r2 = nx * nx * .9 + ny * ny * 1.1, e = Math.sqrt(r2);
+            const ang = sw * (1 - Math.min(1, e)) * 2;                       // чем ближе к центру, тем сильнее поворот: вихрь
+            const ca = Math.cos(ang), sa = Math.sin(ang);
+            const vx = nx * ca - ny * sa, vy = nx * sa + ny * ca;
+            const rx = (vx * cr - vy * sr) * q.sx * sc, ry = (vx * sr + vy * cr) * sc;
+            /* два слоя искажения текут в противоположные стороны: клубы то сжимаются, то расползаются */
+            const q1 = fbm(rx + 5.2 + ax, ry + 1.3 - ay, sd, 3), q2 = fbm(rx - 3.7 - ax * .8, ry + 8.1 + ay * 1.2, sd + 9, 3);
+            const wx = rx + (q1 - .5) * 3.8, wy = ry + (q2 - .5) * 3.8;
+            let d = fbm(wx + ay * .6, wy - ax * .6, sd + 31, 4);
+            const edge = e + (fbm(rx * .7 + ax * .7, ry * .7 - ay * .7, sd + 55, 3) - .5) * .7;   // край тоже плывёт
+            const mask = Math.pow(Math.max(0, 1 - edge * edge), 1.25);
+            d = Math.max(0, d - .4) / .6;
+            d = Math.pow(d, 1.3) * mask;
+            const m = fbm(wx * .8 + 20 - ax, wy * .8 - 7 + ay, sd + 77, 3);
+            const hi = Math.pow(Math.max(0, d - .45) / .55, 1.5) * .35;
+            const i = (y * gw + x) * 4;
+            px[i]     = pal[0][0] + (pal[1][0] - pal[0][0]) * m + (pal[2][0] - pal[0][0]) * hi;
+            px[i + 1] = pal[0][1] + (pal[1][1] - pal[0][1]) * m + (pal[2][1] - pal[0][1]) * hi;
+            px[i + 2] = pal[0][2] + (pal[1][2] - pal[0][2]) * m + (pal[2][2] - pal[0][2]) * hi;
+            px[i + 3] = Math.min(255, d * 255);
+          }
+          q.oc.putImageData(q.img, 0, 0);
+        }
+
+        function resize() {
+          W = innerWidth; H = innerHeight;
+          cv.width = W; cv.height = H;
+        }
+
+        function frame(now) {
+          raf = 0;
+          if (isOff()) return;
+          const dt = Math.min((now - last) / 1000, .05); last = now;
+          const t = now / 1000;
+          ctx.clearRect(0, 0, cv.width, cv.height);
+          if (list.length < maxNeb() && t >= next) {                  // новая туманность, пока не набрано максимум
+            const q = build(); q.t0 = t; list.push(q);
+            next = t + (list.length < maxNeb() ? rnd(10, 25) : 0);   // следующая появляется не сразу
+          }
+          for (let n = list.length - 1; n >= 0; n--) {
+            const cur = list[n], age = t - cur.t0;
+            if (age > cur.life) {
+              list.splice(n, 1);
+              if (next < t + 1) next = t + rnd(4, 12);
+              continue;
+            }
+            cur.acc += dt;
+            if (cur.acc >= STEP) { cur.acc = 0; fill(cur, age); }     // газ пересчитывается ~30 раз в секунду
+            const e = x => x * x * (3 - 2 * x);
+            const k = e(Math.min(1, age / cur.fade)) * e(Math.min(1, (cur.life - age) / cur.fade)) * cur.peak * (.8 + .2 * Math.sin(t * cur.bf + cur.br));
+            cur.x += cur.vx * dt; cur.y += cur.vy * dt;
+            ctx.globalAlpha = k;
+            ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(cur.off, cur.x, cur.y, cur.w, cur.h);
+          }
+          ctx.globalAlpha = 1;
+          raf = requestAnimationFrame(frame);
+        }
+
+        function sync() {
+          if (isOff()) { cancelAnimationFrame(raf); raf = 0; cv.classList.remove("on"); ctx.clearRect(0, 0, cv.width, cv.height); list = []; }
+          else { cv.classList.add("on"); if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } }
+        }
+        addEventListener("resize", resize);
+        new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ["data-motion"] });
+        resize();
+        next = performance.now() / 1000 + .3;
         sync();
       })();
     })();
