@@ -693,6 +693,24 @@
       if (window.ResizeObserver) new ResizeObserver(refit).observe(list);
       addEventListener("resize", refit);
       if (document.fonts && document.fonts.ready) document.fonts.ready.then(refit);
+
+      /* Подпись под списком: всегда в одну строку. Шрифт 12px, а если она шире экрана (телефон), он уменьшается до целого размера, при котором всё помещается. */
+      const noteEl = document.querySelector(".note");
+      function fitNote() {
+        const box = noteEl.parentElement, bs = getComputedStyle(box), ns = getComputedStyle(noteEl);
+        const avail = box.clientWidth - parseFloat(bs.paddingLeft) - parseFloat(bs.paddingRight)
+                      - parseFloat(ns.paddingLeft) - parseFloat(ns.paddingRight);
+        if (avail <= 0) return;                                    // страница скрыта: посчитаем, когда появится
+        const c = document.createElement("canvas").getContext("2d");
+        c.font = `${ns.fontStyle} ${ns.fontWeight} 12px ${ns.fontFamily}`;
+        const w12 = c.measureText(noteEl.textContent).width;
+        noteEl.style.fontSize = Math.max(6, Math.min(12, Math.floor(12 * (avail - 1) / w12))) + "px";
+      }
+      let noteRaf = 0;
+      const refitNote = () => { cancelAnimationFrame(noteRaf); noteRaf = requestAnimationFrame(fitNote); };
+      if (window.ResizeObserver) new ResizeObserver(refitNote).observe(noteEl.parentElement);
+      addEventListener("resize", refitNote);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(refitNote);
       /* тонкая полоска прокрутки справа от блока заметок: видна, только если заметки не помещаются */
       const listWrap = $("letters-wrap"), sbar = $("sbar"), thumb = $("sbar-thumb");
       const updateBar = () => {
@@ -941,115 +959,105 @@
         });
 
         /* ---------- Кометы ----------
-           Кометы появляются сверху и опускаются по плавной, слегка извилистой траектории.
-           Голова крупная, свечение собрано из мерцающих квадратных пикселей, а хвост
-           медленно рассеивается. Палитра приглушённая — от соломенного до янтарного. */
+           Комета падает по баллистической дуге, как брошенное тело: по горизонтали летит равномерно, а вниз её тянет
+           постоянное ускорение, поэтому путь — настоящая парабола (сначала почти горизонтально, потом всё круче).
+           Голова — тёмное неровное ядро с освещённым боком и слабой комой; за ней по пройденному пути тянется
+           длинный хвост, который расширяется и гаснет. Чем быстрее комета, тем хвост длиннее. Палитра приглушённая. */
         const cometPalette = [
           [218, 190, 119], [199, 164, 91], [230, 207, 151],
           [184, 150, 77], [211, 177, 111], [236, 216, 166]
         ];
+        /* ядро: h — освещённый бок, m — основной цвет, d — тень; неровный силуэт, не круг и не звезда */
+        const COMET_ROCK = [
+          "..mmm..",
+          ".mhhmm.",
+          "mhhhmmd",
+          "mhhmmdd",
+          ".mmmddd",
+          ".dmmdd.",
+          "..ddd.."
+        ];
         function spawnComet() {
-          // Входят с боков почти горизонтально, затем плавно уходят вниз
-          // по широкой параболе. Высота старта распределена по всему экрану.
-          const fromLeft = Math.random() < .5;
-          const direction = fromLeft ? 1 : -1;
-          const startY = rnd(Math.max(28, H * .08), Math.max(40, H * .78));
-          const vx = rnd(72, 112);
+          const dir = Math.random() < .5 ? 1 : -1;
+          const T = rnd(2.6, 3.6);                                          // время полёта до нижнего края, с
+          const travel = Math.min(Math.max(rnd(.45, .9) * W, 340), W + 40);  // сдвиг по горизонтали за весь полёт
+          const room = Math.max(0, W + 40 - travel);
+          const sx = rnd(-30, -30 + room);                                   // старт выбран так, чтобы дуга осталась на экране
+          const y0 = rnd(-24, H * .22), vy0 = rnd(10, 60);
+          const fall = H + 50 - y0;                                          // сколько надо пролететь вниз
           return {
-            x: fromLeft ? -16 : W + 16,                              // комета появляется у боковой границы экрана
-            y: startY, startX: fromLeft ? -1 : 1, direction, startY,
-            vx, curveDrop: rnd(H * .9, H * 1.15), initialDrop: rnd(H * .28, H * .38),
-            size: rnd(10, 14), life: 0,
-            maxLife: Math.max(7, (W + 180) / vx * rnd(1.02, 1.12)),
-            tail: [], nextSpark: 0, color: cometPalette[(Math.random() * cometPalette.length) | 0],
-            glow: rnd(.38, .58), flickerSeed: rnd(0, 100),
-            phaseOffset: rnd(0, Math.PI * 2)
+            dir, T, x0: dir > 0 ? sx : W - sx, y0, vy0,
+            vx: travel / T,                                                  // скорость по горизонтали, px/с
+            g: 2 * (fall - vy0 * T) / (T * T),                               // ускорение вниз, px/с²
+            x: 0, y: 0, life: 0, acc: 0, trail: [],
+            color: cometPalette[(Math.random() * cometPalette.length) | 0],
+            flickerSeed: rnd(0, 100)
           };
         }
         function drawComet(q, dt, t) {
           q.life += dt;
-          // Движение по выраженной параболе: сначала комета пересекает край
-          // почти горизонтально, затем всё быстрее уходит вниз. Вертикальное
-          // смещение зависит от доли пройденного экрана, а не от прямой скорости.
-          q.x += q.direction * q.vx * dt;
-          const flightDuration = Math.max(1, (W + 180) / q.vx);
-          const progress = Math.min(1.25, q.life / flightDuration);
-          q.y = q.startY + q.initialDrop * progress + q.curveDrop * progress * progress; // заметное снижение начинается сразу, затем ускоряется по параболе
-          if (q.life > q.maxLife || q.x < -40 || q.x > W + 40 || q.y > H + 40) return true;   // ушла за край — убираем сразу
+          const L = q.life;
+          q.x = q.x0 + q.dir * q.vx * L;
+          q.y = q.y0 + q.vy0 * L + .5 * q.g * L * L;
+          if (q.y > H + 40 || q.x < -60 || q.x > W + 60) return true;       // ушла за край — убираем
+          const vx = q.dir * q.vx, vy = q.vy0 + q.g * L;
+          const sp = Math.hypot(vx, vy) || 1;
+          const ux = vx / sp, uy = vy / sp, nx = -uy, ny = ux;              // направление движения и перпендикуляр
 
-          // Искры отделяются от головы и дольше сохраняются, постепенно рассеиваясь.
-          q.nextSpark -= dt;
-          if (q.nextSpark <= 0) {
-            const curveVy = (q.initialDrop + 2 * q.curveDrop * progress) / flightDuration;
-            const curveVx = q.direction * q.vx;
-            const norm = Math.max(1, Math.hypot(curveVx, curveVy));
-            q.tail.push({
-              x: q.x - curveVx / norm * rnd(5, 14),
-              y: q.y - curveVy / norm * rnd(5, 14),
-              age: 0, life: rnd(.9, 1.9), size: rnd(2, 4.8), driftX: rnd(-18, 18), driftY: rnd(-12, 12),
-              tone: Math.random()
-            });
-            q.nextSpark = rnd(.025, .055);
+          // точки хвоста оставляются на пройденном пути; их разброс и жизнь неровные, поэтому края хвоста рваные
+          q.acc += dt * 110;
+          while (q.acc >= 1) {
+            q.acc -= 1;
+            q.trail.push({ x: q.x, y: q.y, nx, ny, age: 0, life: rnd(.55, .95), r: rnd(-1, 1), tone: Math.random(), sz: rnd(1.6, 3) });
           }
+
           const [r, g, b] = q.color;
+          const fadeIn = Math.min(1, L * 3);
+          const edge = Math.max(0, Math.min(1, (H + 30 - q.y) / 140, (q.x + 30) / 100, (W + 30 - q.x) / 100));
+          const alpha = Math.min(fadeIn, edge);
+          const flicker = .86 + .14 * Math.sin(t * 9 + q.flickerSeed);       // у головы мерцание слабое: она не должна походить на звезду
           ctx.save();
-          const fadeIn = Math.min(1, q.life * 1.8);
-          const fadeOut = Math.min(1, (q.maxLife - q.life) * 1.05);
-          const alpha = Math.max(0, Math.min(fadeIn, fadeOut));
-          const flicker = .58 + .42 * Math.abs(Math.sin(t * 13 + q.flickerSeed)) * (.65 + .35 * Math.sin(t * 7.3 + q.flickerSeed * 1.7));
           ctx.globalCompositeOperation = "lighter";
 
-          // Неровное пиксельное свечение: отдельные квадраты загораются и гаснут,
-          // поэтому ореол не выглядит круглым или одинаковым от кадра к кадру.
-          const glowStep = Math.max(2, Math.round(3.2 * D));
-          const gx = Math.round(q.x * D), gy = Math.round(q.y * D);
-          for (let py = -4; py <= 4; py++) {
-            for (let px = -4; px <= 4; px++) {
-              if (px === 0 && py === 0) continue;
-              const distance = Math.hypot(px, py);
-              // Скруглённый пиксельный ореол: меньше радиус и мягкие углы.
-              if (distance > 4.4 || (Math.abs(px) === 4 && Math.abs(py) === 4) || Math.random() < .22 + distance * .055) continue;
-              const blink = Math.random() < .24 ? rnd(.12, .35) : rnd(.45, 1);
-              const block = Math.max(1, Math.round(rnd(1.2, 2.7) * D));
-              ctx.globalAlpha = q.glow * alpha * flicker * blink * (1 - distance / 4.8) * .9;
-              ctx.fillStyle = `rgb(${r},${g},${b})`;
-              ctx.fillRect(gx + px * glowStep, gy + py * glowStep, block, block);
-            }
+          // хвост: от головы вглубь пути, расширяется и гаснет; ближе к голове светлее
+          for (let i = q.trail.length - 1; i >= 0; i--) {
+            const s = q.trail[i];
+            s.age += dt;
+            if (s.age >= s.life) { q.trail.splice(i, 1); continue; }
+            const k = 1 - s.age / s.life;
+            const spread = (1.5 + s.age * 26) * s.r;
+            const mix = k * k * .65 * (s.tone > .55 ? 1 : .5);
+            ctx.fillStyle = `rgb(${Math.round(r + (244 - r) * mix)},${Math.round(g + (229 - g) * mix)},${Math.round(b + (190 - b) * mix)})`;
+            ctx.globalAlpha = alpha * k * k * (s.tone > .55 ? .8 : .5);
+            const ss = Math.max(1, Math.round(s.sz * (.35 + .65 * k) * D));
+            ctx.fillRect(Math.round((s.x + s.nx * spread) * D), Math.round((s.y + s.ny * spread) * D), ss, ss);
           }
 
-          for (let i = q.tail.length - 1; i >= 0; i--) {
-            const s = q.tail[i];
-            s.age += dt;
-            if (s.age >= s.life) { q.tail.splice(i, 1); continue; }
-            const k = 1 - s.age / s.life;
-            const drift = s.age * .85;
-            const warmth = s.tone > .7 ? [236, 216, 166] : s.tone > .35 ? [211, 177, 111] : [184, 150, 77];
-            ctx.globalAlpha = k * alpha * (s.tone > .7 ? .52 : .32) * flicker;
-            ctx.fillStyle = `rgb(${warmth[0]},${warmth[1]},${warmth[2]})`;
-            const ss = Math.max(1, Math.round(s.size * k * D));
-            ctx.fillRect(Math.round((s.x + s.driftX * drift) * D), Math.round((s.y + s.driftY * drift) * D), ss, ss);
-          }
-          // Пиксельно-круглая голова: силуэт собирается из квадратных клеток,
-          // как у планет, сужаясь к краям вместо идеального квадрата.
-          const head = Math.max(7, Math.round(q.size * D));
-          const cell = Math.max(1, Math.round(head / 7));
-          const pattern = [ [2,4], [1,5], [0,6], [0,6], [0,6], [1,5], [2,4] ];
-          const actual = cell * 7;
-          const hx = gx - Math.floor(actual / 2), hy = gy - Math.floor(actual / 2);
-          ctx.globalAlpha = alpha * (.7 + flicker * .22);
+          const gx = Math.round(q.x * D), gy = Math.round(q.y * D);
+          // кома: слабая дымка вокруг ядра, смещённая назад
           ctx.fillStyle = `rgb(${r},${g},${b})`;
-          for (let row = 0; row < pattern.length; row++) {
-            const [from, to] = pattern[row];
-            for (let col = from; col <= to; col++) ctx.fillRect(hx + col * cell, hy + row * cell, cell, cell);
+          for (let i = 0; i < 14; i++) {
+            const d = rnd(-2, 13), side = rnd(-1, 1) * (3 + Math.max(0, d) * .45);
+            ctx.globalAlpha = alpha * rnd(.07, .2) * flicker;
+            const cs = Math.max(1, Math.round(rnd(1.6, 3) * D));
+            ctx.fillRect(Math.round(gx - ux * d * D + nx * side * D), Math.round(gy - uy * d * D + ny * side * D), cs, cs);
           }
-          // Светлое ядро тоже круглое в пиксельном стиле.
-          ctx.globalAlpha = alpha * flicker * .88;
-          ctx.fillStyle = "rgb(244, 229, 190)";
-          const coreCell = Math.max(1, Math.round(cell * .72));
-          ctx.fillRect(gx - coreCell, gy - coreCell, coreCell, coreCell);
-          ctx.fillRect(gx, gy - coreCell, coreCell, coreCell);
-          ctx.fillRect(gx - coreCell, gy, coreCell, coreCell);
-          ctx.fillRect(gx, gy, coreCell, coreCell);
+          ctx.restore();
+
+          // ядро: неровный камень с освещённым боком
+          ctx.save();
+          const cell = Math.max(2, Math.round(1.7 * D));
+          const hx = gx - Math.floor(cell * 3.5), hy = gy - Math.floor(cell * 3.5);
+          const shade = { h: "rgb(244,229,190)", m: `rgb(${r},${g},${b})`, d: `rgb(${Math.round(r * .52)},${Math.round(g * .5)},${Math.round(b * .42)})` };
+          ctx.globalAlpha = alpha * flicker;
+          COMET_ROCK.forEach((row, y) => {
+            for (let x = 0; x < row.length; x++) {
+              const c = row[x];
+              if (c === ".") continue;
+              ctx.fillStyle = shade[c];
+              ctx.fillRect(hx + x * cell, hy + y * cell, cell, cell);
+            }
+          });
           ctx.restore();
           return false;
         }

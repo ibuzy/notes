@@ -547,11 +547,9 @@ ul { list-style: none; }
   padding: 0 var(--pad);
   font-size: 12px;                                     /* мелкая подпись на всех устройствах */
   color: var(--muted);
-  max-width: calc(34em + 2 * var(--pad));
-}
-/* на компьютере подпись помещается в одну строку; на телефоне переносится */
-@media (min-width: 601px) {
-  .note { max-width: none; white-space: nowrap; padding: 0 12px; }
+  max-width: none;
+  white-space: nowrap;                                 /* всегда одна строка; размер шрифта подгоняет скрипт под ширину экрана */
+  padding: 0 12px;
 }
 
 
