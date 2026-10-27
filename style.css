@@ -983,7 +983,7 @@ body.reading .fade::after { opacity: 1; }
 
 /* пока письмо открыто, фон (пиксели, созвездия, планеты) слегка размыт */
 #px { transition: filter .5s var(--ease); }
-body.reading #px { filter: blur(1px); }
+body.reading #px { filter: blur(2px); }
 body.peek #px { filter: none !important; }
 
 /* то же сверху: текст плавно уходит в размытие у верхнего края, высота полосы как у нижней */

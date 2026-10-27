@@ -925,16 +925,26 @@
               }
             }
             if (q.boom === undefined) {
+              const sx0 = q.x, sy0 = q.y;
               q.x += q.pvx * dt; q.y += q.pvy * dt;
-              /* комета врезалась в планету: планета в месте удара крошится, комета взрывается */
-              for (const pl of planets) {
-                const pcx = pl.x + Math.sin(t * pl.f + pl.p) * pl.amp + pl.pw / 2, pcy = pl.y + pl.ph / 2;
-                if (Math.hypot(q.x - pcx, q.y - pcy) < Math.min(pl.pw, pl.ph) / 2 * .9 + 2) {
-                  hitPlanet(pl, q, t);
+              /* комета врезалась в планету: планета в месте удара крошится, комета взрывается.
+                 Путь за кадр проверяется по частям (раз в ~5 px), чтобы быстрая комета не проскакивала маленькую планету между кадрами */
+              const steps = Math.max(1, Math.ceil(Math.hypot(q.x - sx0, q.y - sy0) / 5));
+              hitLoop:
+              for (let k = 1; k <= steps; k++) {
+                const kx = sx0 + (q.x - sx0) * k / steps, ky = sy0 + (q.y - sy0) * k / steps;
+                for (const pl of planets) {
+                  if (planetAlpha(pl) < .5) continue;                       // планета у края экрана почти невидима: удара нет
+                  const pcx = pl.x + pl.pw / 2, pcy = pl.y + pl.ph / 2;
+                  if (Math.hypot(kx - pcx, ky - pcy) > Math.hypot(pl.pw, pl.ph) / 2 + pl.amp + 8) continue;   // грубый отсев по габариту
+                  if (!planetSolidNear(pl, t, kx, ky, CELL * 1.2)) continue;        // точная проверка: комета касается уцелевшей клетки
+                  q.x = kx; q.y = ky;                                       // взрыв ровно в точке касания
+                  const vl = Math.hypot(q.pvx, q.pvy) || 1;
+                  hitPlanet(pl, { x: kx + q.pvx / vl * 5, y: ky + q.pvy / vl * 5, pvx: q.pvx, pvy: q.pvy }, t);   // выбоина чуть глубже точки касания, по ходу полёта
                   q.boom = 0;
                   q.parts = [];
                   for (let i = 0; i < 24; i++) q.parts.push({ ang: rnd(0, 6.283), sp: rnd(.5, 1.5) * 56, sz: rnd(1.5, 3.2), tone: Math.random() });
-                  break;
+                  break hitLoop;
                 }
               }
             }
@@ -1404,6 +1414,20 @@
           cells.sort((a, b) => a.k - b.k);
           q.crumble = { cells, rel: 0, acc: 0, total: cells.length, rate: cells.length / 2.4 };
           q.gone = q.gone || new Set();
+        }
+        /* прозрачность планеты на экране (у верхнего и нижнего края она гаснет): то же, что в drawPlanet */
+        function planetAlpha(q) {
+          const edge = Math.min(H * .2, 120);
+          return clamp01((H - q.y) / edge) * clamp01((q.y + q.ph + 12) / edge);
+        }
+        /* есть ли у планеты уцелевшая клетка ближе чем r к точке (x, y): отбитые кометой или оторванные дырой клетки не считаются */
+        function planetSolidNear(pl, t, x, y, r) {
+          const ox = pl.x + Math.sin(t * pl.f + pl.p) * pl.amp;
+          for (const [, xy] of pl.d.groups) for (let i = 0; i < xy.length; i += 2) {
+            if (pl.gone && pl.gone.has(xy[i + 1] * 100 + xy[i])) continue;
+            if (Math.hypot(ox + (xy[i] + .5) * CELL - x, pl.y + (xy[i + 1] + .5) * CELL - y) < r) return true;
+          }
+          return false;
         }
         /* удар кометы: клетки вокруг точки удара отрываются и разлетаются от неё, остальная планета остаётся целой (с выбоиной) */
         function hitPlanet(pl, c, t) {
@@ -1938,7 +1962,7 @@
             if (comets.length < maxComets()) comets.push(spawnComet());
             nextComet = t + rnd(6.5, 11);
           }
-          /* слои снизу вверх: летающие пиксели, кометы, созвездия, звёзды, планеты, чёрные дыры.
+          /* слои снизу вверх: летающие пиксели, созвездия, звёзды, планеты, кометы, чёрные дыры.
              Каждый верхний слой перекрывает нижние (под силуэтом ластиком стирается всё, что нарисовано раньше) */
           for (let i = 0; i < dots.length; i++) {
             const p = dots[i];
@@ -1978,7 +2002,6 @@
             const s = Math.max(1, Math.round(p.s * D * live));
             ctx.fillRect(Math.round((x + lx) * D), Math.round((y + ly) * D), s, s);
           }
-          for (let i = comets.length - 1; i >= 0; i--) if (drawComet(comets[i], dt, t)) comets.splice(i, 1);
           ctx.globalAlpha = 1; ctx.fillStyle = color;
           for (let i = 0; i < sky.length; i++) {
             if (drawSky(sky[i], t, dt)) sky[i] = spawnSky(false);
@@ -1986,6 +2009,9 @@
           for (let i = stars.length - 1; i >= 0; i--) if (drawStar(stars[i], dt, t)) stars.splice(i, 1);
           for (let i = planets.length - 1; i >= 0; i--) if (drawPlanet(planets[i], t, dt)) planets.splice(i, 1);
           drawDebris(dt);
+          /* кометы выше планет: иначе планета закрывает вспышку удара */
+          for (let i = comets.length - 1; i >= 0; i--) if (drawComet(comets[i], dt, t)) comets.splice(i, 1);
+          ctx.globalAlpha = 1; ctx.fillStyle = color;
           for (let i = holes.length - 1; i >= 0; i--) if (drawHole(holes[i], t, dt)) holes.splice(i, 1);
           raf = requestAnimationFrame(frame);
         }
@@ -2065,7 +2091,7 @@
             fx: rnd(.05, .11), fy: rnd(.04, .09), ph: rnd(0, 6.28),                         // скорости течения слоёв
             x: bx, y: by,
             vx: rnd(-1.4, 1.4), vy: rnd(-1.1, 1.1),
-            life: rnd(55, 90), fade: rnd(8, 12), peak: rnd(.08, .125), br: rnd(0, 6.28), bf: rnd(.1, .22),
+            life: rnd(55, 90), fade: rnd(8, 12), peak: rnd(.04, .065), br: rnd(0, 6.28), bf: rnd(.1, .22),
             t0: 0, acc: rnd(0, STEP)
           };
         }
