@@ -73,6 +73,34 @@ input::selection { background: var(--ink); color: var(--paper); }
 /* сам индикатор (i с четырьмя b) и keyframes boot-sq1…4 описаны в инлайн-стилях index.html */
 html.booting .load-screen i b { animation-play-state: running !important; }   /* индикатор крутится, пока остальные анимации стоят */
 
+/* ---------- Далёкие звёзды (самый нижний слой, рисует скрипт один раз) ---------- */
+#far {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -3;                 /* под туманностями и всем остальным */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s var(--ease);
+}
+#far.on { opacity: 1; }
+/* при включённых анимациях звёзды рисуются первым слоем в холсте #px (под планетами и дырами), этот холст нужен только без анимаций */
+:root:not([data-motion="off"]) #far { display: none; }
+
+/* ---------- Зерно: статичный шум на самом дне фона, без анимации и режимов смешивания (почти бесплатно) ---------- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -4;                 /* самый нижний слой: под звёздами, туманностями и всеми объектами */
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='1' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.4 -.4'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  background-size: 160px 160px;
+  opacity: .045;
+}
+:root:not([data-theme="dark"]) body::after { opacity: .03; }
+
 /* ---------- Туманности (самый нижний слой, рисует скрипт) ---------- */
 #neb {
   position: fixed;
@@ -264,7 +292,7 @@ body.peek .peek-toggle .slash { opacity: 1; }
 .peek-toggle path { transition: opacity .4s var(--ease); }
 
 /* в режиме «пустота» всё, кроме фона и самой кнопки, плавно гаснет и перестаёт нажиматься */
-body.peek > :not(#px):not(#neb):not(#peek):not(#boot) {
+body.peek > :not(#px):not(#neb):not(#far):not(#peek):not(#boot) {
   opacity: 0 !important;
   visibility: hidden;
   pointer-events: none !important;

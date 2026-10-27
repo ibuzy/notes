@@ -853,6 +853,7 @@
       });
       addEventListener("popstate", () => closeLetter(true));
 
+      const farApi = { stars: null };                 // данные далёких звёзд: их создаёт блок «Далёкие звёзды», рисует кадр холста #px
       /* ---------- Летающие пиксели ----------
          Пиксели медленно плывут вверх, покачиваются, мерцают ступенями
          и разлетаются от курсора. Цвет берётся из темы. */
@@ -940,8 +941,8 @@
                 const kx = sx0 + (q.x - sx0) * k / steps, ky = sy0 + (q.y - sy0) * k / steps;
                 for (const pl of planets) {
                   if (planetAlpha(pl) < .5) continue;                       // планета у края экрана почти невидима: удара нет
-                  const pcx = pl.x + pl.pw / 2, pcy = pl.y + pl.ph / 2;
-                  if (Math.hypot(kx - pcx, ky - pcy) > Math.hypot(pl.pw, pl.ph) / 2 + pl.amp + 8) continue;   // грубый отсев по габариту
+                  const pcx = pl.x + (pl.ox || 0) + pl.pw / 2, pcy = pl.y + (pl.oy || 0) + pl.ph / 2;
+                  if (Math.hypot(kx - pcx, ky - pcy) > Math.hypot(pl.pw, pl.ph) / 2 + pl.amp + 22) continue;   // грубый отсев по габариту
                   if (!planetSolidNear(pl, t, kx, ky, CELL * 1.2)) continue;        // точная проверка: комета касается уцелевшей клетки
                   q.x = kx; q.y = ky;                                       // взрыв ровно в точке касания
                   const vl = Math.hypot(q.pvx, q.pvy) || 1;
@@ -1379,6 +1380,17 @@
         const maxPlanets = () => (W < 600 ? 2 : 3);
         const maxComets = () => (W < 600 ? 2 : 3);
 
+        /* курсор слегка сдвигает планету или чёрную дыру (как летающие пиксели), смещение небольшое и плавно возвращается */
+        function nudge(q, dt, R, cap) {
+          q.ox = q.ox || 0; q.oy = q.oy || 0;
+          const cx = q.x + Math.sin(performance.now() / 1000 * q.f + q.p) * q.amp + q.pw / 2, cy = q.y + q.ph / 2;
+          const dx = cx - mx, dy = cy - my, d = Math.hypot(dx, dy) || 1, r = R + q.pw / 2;
+          /* цель смещения: тем дальше от курсора, чем он ближе (но не больше cap); к цели объект плавно «подтягивается», резких рывков нет */
+          let tx = 0, ty = 0;
+          if (d < r) { const u = 1 - d / r, m = cap * u * u * (3 - 2 * u); tx = dx / d * m; ty = dy / d * m; }
+          const k = 1 - Math.exp(-dt * (d < r ? 4 : 1.6));
+          q.ox += (tx - q.ox) * k; q.oy += (ty - q.oy) * k;
+        }
         const rectGap = (a, b) => Math.hypot(
           Math.max(0, a.x0 - b.x1, b.x0 - a.x1),
           Math.max(0, a.y0 - b.y1, b.y0 - a.y1));
@@ -1427,21 +1439,21 @@
         }
         /* есть ли у планеты уцелевшая клетка ближе чем r к точке (x, y): отбитые кометой или оторванные дырой клетки не считаются */
         function planetSolidNear(pl, t, x, y, r) {
-          const ox = pl.x + Math.sin(t * pl.f + pl.p) * pl.amp;
+          const ox = pl.x + (pl.ox || 0) + Math.sin(t * pl.f + pl.p) * pl.amp;
           for (const [, xy] of pl.d.groups) for (let i = 0; i < xy.length; i += 2) {
             if (pl.gone && pl.gone.has(xy[i + 1] * 100 + xy[i])) continue;
-            if (Math.hypot(ox + (xy[i] + .5) * CELL - x, pl.y + (xy[i + 1] + .5) * CELL - y) < r) return true;
+            if (Math.hypot(ox + (xy[i] + .5) * CELL - x, pl.y + (pl.oy || 0) + (xy[i + 1] + .5) * CELL - y) < r) return true;
           }
           return false;
         }
         /* удар кометы: клетки вокруг точки удара отрываются и разлетаются от неё, остальная планета остаётся целой (с выбоиной) */
         function hitPlanet(pl, c, t) {
           pl.gone = pl.gone || new Set();
-          const ox = pl.x + Math.sin(t * pl.f + pl.p) * pl.amp, rI = Math.max(2.4, Math.min(pl.d.w, pl.d.h) * .24) * CELL * rnd(.9, 1.2);
+          const ox = pl.x + (pl.ox || 0) + Math.sin(t * pl.f + pl.p) * pl.amp, rI = Math.max(2.4, Math.min(pl.d.w, pl.d.h) * .24) * CELL * rnd(.9, 1.2);
           for (const [col, xy] of pl.d.groups) for (let i = 0; i < xy.length; i += 2) {
             const key = xy[i + 1] * 100 + xy[i];
             if (pl.gone.has(key)) continue;
-            const cx = ox + (xy[i] + .5) * CELL, cy = pl.y + (xy[i + 1] + .5) * CELL, dd = Math.hypot(cx - c.x, cy - c.y);
+            const cx = ox + (xy[i] + .5) * CELL, cy = pl.y + (pl.oy || 0) + (xy[i + 1] + .5) * CELL, dd = Math.hypot(cx - c.x, cy - c.y);
             if (dd >= rI) continue;
             pl.gone.add(key);
             const k = rnd(40, 110) / (dd || 1);
@@ -1485,6 +1497,7 @@
             q.x += wx / wd * sp; q.y += wy / wd * sp;
             if (!q.crumble && wd < w.R * .75) startCrumble(q, w);
           }
+          nudge(q, dt, 70, 5);
           const cr = q.crumble;
           if (cr) {
             cr.acc += cr.rate * dt;
@@ -1501,7 +1514,7 @@
           const edge = Math.min(H * .2, 120);
           const a = clamp01((H - q.y) / edge) * clamp01((q.y + q.ph + 12) / edge);
           if (a <= .01) return false;
-          const ox = Math.round((q.x + Math.sin(t * q.f + q.p) * q.amp) * D), oy = Math.round(q.y * D);
+          const ox = Math.round((q.x + (q.ox || 0) + Math.sin(t * q.f + q.p) * q.amp) * D), oy = Math.round((q.y + (q.oy || 0)) * D);
           const cs = Math.round(CELL * D);
           /* планета лежит выше звёзд и созвездий: под силуэтом стираем то, что нарисовано раньше */
           ctx.globalCompositeOperation = "destination-out";
@@ -1722,8 +1735,9 @@
           const edge = Math.min(H * .2, 120);
           const fade = clamp01((H - q.y) / edge) * clamp01((q.y + q.ph + 14) / edge);
           if (fade <= .01) return false;
+          nudge(q, dt, 80, 2);
           const cs = Math.round(CELL * D);
-          const ox = Math.round((q.x + Math.sin(t * q.f + q.p) * q.amp) * D), oy = Math.round(q.y * D);
+          const ox = Math.round((q.x + (q.ox || 0) + Math.sin(t * q.f + q.p) * q.amp) * D), oy = Math.round((q.y + (q.oy || 0)) * D);
           const cx = ox + N * cs / 2, cy = oy + N * cs / 2;
           const dark = root.dataset.theme === "dark";
           const K = fade * .8;                                    // общая приглушённость: чёрные дыры не должны перетягивать внимание
@@ -1943,6 +1957,37 @@
           return false;
         }
 
+        /* далёкие звёзды: рисуются первым слоем кадра, мерцают (каждая со своей фазой и скоростью), еле заметно покачиваются,
+           а у ярких время от времени вспыхивает крошечный крестик. Выше летящих пикселей и объектов их нет: объекты стирают их под собой */
+        let farLast = "";
+        function drawFar(t) {
+          const A = farApi.stars;
+          if (!A) return;
+          const dark = root.dataset.theme === "dark", n = Math.max(160, Math.min(A.length, Math.round(W * H / 2400)));
+          const px = Math.max(1, Math.round(D)), k = dark ? 1 : .5;
+          for (let i = 0; i < n; i++) {
+            const s = A[i];
+            const col = dark ? s.css : "rgb(17,17,17)";
+            if (col !== farLast) { ctx.fillStyle = col; farLast = col; }
+            let b = .5 - .5 * Math.sin(t * s.sp + s.ph);
+            if (s.sh) b = Math.pow(b, 3);
+            const tw = s.tw ? 1 - s.tw * b : 1;
+            ctx.globalAlpha = s.a * tw * k;
+            const x = Math.round((s.x * (W - 2) + Math.sin(t * s.ds + s.dp) * s.da) * D), y = Math.round((s.y * (H - 2) + Math.cos(t * s.ds * .73 + s.dp * 1.7) * s.da) * D), z = s.big ? px * 2 : px;
+            ctx.fillRect(x, y, z, z);
+            if (s.big) {                                           // редкая вспышка-крестик
+              const g = Math.pow(Math.max(0, Math.sin(t * .3 + s.ph)), 30);
+              if (g > .06) {
+                ctx.globalAlpha = Math.min(.55, g * .6) * k;
+                const r = px * 2, o = z >> 1;
+                ctx.fillRect(x + o, y - r - px, px, r); ctx.fillRect(x + o, y + z + px, px, r);
+                ctx.fillRect(x - r - px, y + o, r, px); ctx.fillRect(x + z + px, y + o, r, px);
+              }
+            }
+          }
+          ctx.globalAlpha = 1;
+          farLast = "";
+        }
         const readColor = () => { color = getComputedStyle(root).getPropertyValue("--ink").trim() || color; };
 
         function resize() {
@@ -1969,6 +2014,9 @@
           last = now;
           const t = now / 1000;
           ctx.clearRect(0, 0, cv.width, cv.height);
+          /* далёкие звёзды рисуются первым слоем прямо в этот холст: так планеты, дыры и ядра звёзд стирают их под собой, и они остаются позади всех объектов */
+          ctx.globalAlpha = 1;
+          drawFar(t);
           ctx.fillStyle = color;
           /* колодцы тяготения: центр, радиус влияния, радиус «захвата» (чуть больше тени) и заметность дыры (затухает у краёв экрана) */
           wells.length = 0;
@@ -1976,7 +2024,7 @@
             const edge = Math.min(H * .2, 120);
             const f = clamp01((H - q.y) / edge) * clamp01((q.y + q.ph + 14) / edge);
             if (f < .4) continue;
-            wells.push({ x: q.x + Math.sin(t * q.f + q.p) * q.amp + q.pw / 2, y: q.y + q.ph / 2, R: 70 + q.pw * .9, rc: q.d.rs * CELL * 1.1, k: f });
+            wells.push({ x: q.x + (q.ox || 0) + Math.sin(t * q.f + q.p) * q.amp + q.pw / 2, y: q.y + (q.oy || 0) + q.ph / 2, R: 70 + q.pw * .9, rc: q.d.rs * CELL * 1.1, k: f });
           }
           if (t >= nextStar) {                                  // новая звезда загорается на экране далеко от остальных
             if (stars.length < maxStars()) { const q = spawnStar(); if (q) stars.push(q); }
@@ -2030,9 +2078,15 @@
             p.ox *= damp; p.oy *= damp;
 
             const tw = (Math.sin(t * p.tw + p.tp) + 1) / 2;                        // плавное мерцание
-            ctx.globalAlpha = p.a * (.35 + .65 * tw) * live;
             const s = Math.max(1, Math.round(p.s * D * live));
-            ctx.fillRect(Math.round((x + lx) * D), Math.round((y + ly) * D), s, s);
+            const rx = Math.round((x + lx) * D), ry = Math.round((y + ly) * D);
+            /* пиксель лежит выше далёких звёзд: под ним звезда стирается, а не просвечивает сквозь его прозрачность */
+            ctx.globalCompositeOperation = "destination-out";
+            ctx.globalAlpha = live;
+            ctx.fillRect(rx, ry, s, s);
+            ctx.globalCompositeOperation = "source-over";
+            ctx.globalAlpha = p.a * (.35 + .65 * tw) * live;
+            ctx.fillRect(rx, ry, s, s);
           }
           ctx.globalAlpha = 1; ctx.fillStyle = color;
           for (let i = 0; i < sky.length; i++) {
@@ -2072,6 +2126,52 @@
         sync();
       })();
 
+      /* ---------- Далёкие звёзды ----------
+         Самый нижний слой (canvas #far): несколько сотен крошечных неподвижных точек. Координаты хранятся в долях экрана
+         и создаются один раз (с фиксированным зерном), поэтому при изменении размера окна звёзды не перемешиваются.
+         Рисуются один раз и перерисовываются только при смене размера или темы: на кадр это ничего не стоит. */
+      (() => {
+        const cv = $("far"), ctx = cv.getContext("2d");
+        let seed = (Math.random() * 4294967296) >>> 0;      // при каждой загрузке страницы звёзды новые
+        const rand = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+        const TINT = [[255, 255, 255], [255, 255, 255], [255, 246, 226], [214, 228, 255], [255, 226, 200]];
+        const ALL = Array.from({ length: 900 }, () => {
+          const b = Math.pow(rand(), 2.4);                          // большинство звёзд тусклые, ярких мало
+          const x = rand(), y = rand(), c = TINT[(rand() * TINT.length) | 0];
+          return {
+            x, y, a: .1 + b * .6, big: b > .93, c,
+            css: `rgb(${c[0]},${c[1]},${c[2]})`,
+            ph: rand() * 6.283,                                       // фаза мерцания
+            tw: rand() < .12 ? 0 : .4 + rand() * .55,                 // почти все мерцают: от лёгкого дрожания до почти полного угасания
+            sp: .5 + rand() * 1.9, sh: rand() < .3,                   // sh — «моргающие» звёзды: в основном яркие, на миг гаснут
+            dp: rand() * 6.283, ds: .12 + rand() * .3, da: 1.5 + rand() * 3    // плавное блуждание на несколько пикселей по кругу, не полёт
+          };
+        });
+        farApi.stars = ALL;
+        function draw() {
+          const W = innerWidth, H = innerHeight, D = Math.min(devicePixelRatio || 1, 2);
+          cv.width = Math.round(W * D); cv.height = Math.round(H * D);
+          ctx.clearRect(0, 0, cv.width, cv.height);
+          const dark = root.dataset.theme === "dark";
+          const n = Math.max(160, Math.min(ALL.length, Math.round(W * H / 2400)));
+          const px = Math.max(1, Math.round(D));
+          for (let i = 0; i < n; i++) {
+            const s = ALL[i], c = dark ? s.c : [17, 17, 17];
+            ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+            ctx.globalAlpha = s.a * (dark ? 1 : .5);
+            const x = Math.round(s.x * (cv.width - 2)), y = Math.round(s.y * (cv.height - 2)), z = s.big ? px * 2 : px;
+            ctx.fillRect(x, y, z, z);
+          }
+          ctx.globalAlpha = 1;
+        }
+        let t = 0;
+        const redraw = () => { clearTimeout(t); t = setTimeout(draw, 120); };
+        addEventListener("resize", redraw);
+        new MutationObserver(draw).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+        draw();
+        requestAnimationFrame(() => cv.classList.add("on"));
+      })();
+
       /* ---------- Туманности ----------
          Самый нижний слой (canvas #neb под #px). Небольшие, тусклые, разных цветов, одновременно не больше 3 (на телефоне 1),
          с объектами не взаимодействуют. Облако газа пересчитывается на мелкой сетке ~30 раз в секунду:
@@ -2090,7 +2190,7 @@
         ];
         const GW = 72, STEP = 1 / 30;
         let W = 0, H = 0, list = [], next = 0, raf = 0, last = 0;
-        const maxNeb = () => W < 600 ? 1 : W < 1600 ? 2 : 3;   // на телефоне одна, на обычном экране две, на большом три
+        const maxNeb = () => W < 600 ? 1 : 2;   // на телефоне одна, на компьютере не больше двух (разного размера)
 
         function hash(x, y, s) { let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 1442695041)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
         function vnoise(x, y, s) {
@@ -2104,33 +2204,40 @@
         function build() {
           let i, tries = 0;   // палитра, которой нет у других живых туманностей
           do i = (Math.random() * PAL.length) | 0; while (list.some(o => o.pi === i) && ++tries < 30);
-          const w = Math.round(Math.min(Math.max(rnd(.17, .26) * Math.max(W, H), 200), W * .7)), h = Math.round(w * rnd(.7, 1));
+          /* три размера; новая туманность берёт размер, которого сейчас нет на экране, поэтому две одновременные всегда разные.
+             На компьютере они очень крупные (до размера экрана и больше), на телефоне меньше */
+          const pc = W >= 600, big = Math.max(W, H);
+          const used = list.map(o => o.tier), free = [0, 1, 2].filter(k => !used.includes(k));
+          const pool = free.length ? free : [0, 1, 2], tier = pool[(Math.random() * pool.length) | 0];
+          const R = pc ? [[.42, .56], [.62, .82], [.88, 1.1]] : [[.2, .3], [.32, .46], [.5, .68]];
+          const w = Math.round(Math.min(Math.max(rnd(R[tier][0], R[tier][1]) * big, 220), W * (pc ? 1.15 : .9))), h = Math.round(w * rnd(.7, 1));
+          const GW = w > 700 ? 84 : 72;                                              // у крупных сетка чуть гуще, иначе они выглядят мутно
           const gh = Math.max(24, Math.round(GW * h / w));
           const off = document.createElement("canvas"); off.width = GW; off.height = gh;
           const oc = off.getContext("2d");
           const margin = .1;
           let bx = 0, by = 0, best = -1;   // из нескольких случайных мест берём самое далёкое от других туманностей
-          for (let k = 0; k < 12; k++) {
+          for (let k = 0; k < 30; k++) {
             const x = rnd(-w * margin, W - w * (1 - margin)), y = rnd(-h * margin, H - h * (1 - margin));
             let dmin = 1e9;
             for (const o of list) dmin = Math.min(dmin, Math.hypot(x + w / 2 - o.x - o.w / 2, y + h / 2 - o.y - o.h / 2));
             if (dmin > best) { best = dmin; bx = x; by = y; }
           }
           return {
-            off, oc, img: oc.createImageData(GW, gh), gh, w, h, pal: PAL[i], pi: i,
+            off, oc, img: oc.createImageData(GW, gh), gw: GW, gh, tier, w, h, pal: PAL[i], pi: i,
             seed: (Math.random() * 1e6) | 0, sc: rnd(2.0, 3.0), sx: rnd(.85, 1.25),
             rot: rnd(0, 6.28), sw: rnd(.25, .5) * (Math.random() < .5 ? -1 : 1),            // сила закручивания
             fx: rnd(.05, .11), fy: rnd(.04, .09), ph: rnd(0, 6.28),                         // скорости течения слоёв
             x: bx, y: by,
             vx: rnd(-1.4, 1.4), vy: rnd(-1.1, 1.1),
-            life: rnd(55, 90), fade: rnd(8, 12), peak: rnd(.04, .065), br: rnd(0, 6.28), bf: rnd(.1, .22),
+            life: rnd(55, 90), fade: rnd(8, 12), peak: rnd(.04, .065) * (tier === 2 ? .8 : 1), br: rnd(0, 6.28), bf: rnd(.1, .22),
             t0: 0, acc: rnd(0, STEP)
           };
         }
 
         /* пересчёт газа в момент T (секунды жизни туманности) */
         function fill(q, T) {
-          const gw = GW, gh = q.gh, px = q.img.data, pal = q.pal, sd = q.seed, sc = q.sc;
+          const gw = q.gw, gh = q.gh, px = q.img.data, pal = q.pal, sd = q.seed, sc = q.sc;
           const cr = Math.cos(q.rot), sr = Math.sin(q.rot);
           const sw = q.sw * Math.sin(T * .09 + q.ph);                       // закрутка то в одну, то в другую сторону
           const ax = T * q.fx, ay = T * q.fy;
@@ -2145,17 +2252,23 @@
             const q1 = fbm(rx + 5.2 + ax, ry + 1.3 - ay, sd, 3), q2 = fbm(rx - 3.7 - ax * .8, ry + 8.1 + ay * 1.2, sd + 9, 3);
             const wx = rx + (q1 - .5) * 3.8, wy = ry + (q2 - .5) * 3.8;
             let d = fbm(wx + ay * .6, wy - ax * .6, sd + 31, 4);
-            const edge = e + (fbm(rx * .7 + ax * .7, ry * .7 - ay * .7, sd + 55, 3) - .5) * .7;   // край тоже плывёт
-            const mask = Math.pow(Math.max(0, 1 - edge * edge), 1.25);
-            d = Math.max(0, d - .4) / .6;
-            const rr = Math.sqrt(nx * nx + ny * ny), tf = Math.min(1, Math.max(0, (1 - rr) / .5));
-            d = Math.pow(d, 1.3) * mask * (tf * tf * (3 - 2 * tf));   // плавное затухание к границе текстуры: прямоугольного края не видно
-            const m = fbm(wx * .8 + 20 - ax, wy * .8 - 7 + ay, sd + 77, 3);
-            const hi = Math.pow(Math.max(0, d - .45) / .55, 1.5) * .35;
+            const edge = e + (fbm(rx * .7 + ax * .7, ry * .7 - ay * .7, sd + 55, 3) - .5) * .5;   // край тоже плывёт
+            const ef = Math.min(1, Math.max(0, 1 - edge)), mask = ef * ef * (3 - 2 * ef);        // плавный спад к краю (smoothstep вместо резкой степени)
+            d = Math.min(1, Math.max(0, (d - .26) / .74));
+            d = (d * d * (3 - 2 * d)) * .6 + d * .4;                                              // мягкий контраст: плотные клубы без жёстких границ
+            const rr = Math.sqrt(nx * nx + ny * ny), tf = Math.min(1, Math.max(0, (1 - rr) / .6));
+            d = d * mask * (tf * tf * (3 - 2 * tf));                                              // и затухание к границе текстуры
+            /* цвет: крупное медленное поле + общий наклон поперёк облака дают плавный переход между тремя цветами палитры */
+            const ml = fbm(wx * .45 + 20 - ax, wy * .45 - 7 + ay, sd + 77, 2);
+            let g = .5 + (ml - .5) * 1.5 + (nx * cr + ny * sr) * .22;
+            g = Math.min(1, Math.max(0, g)); g = g * g * (3 - 2 * g);
+            const hq = Math.min(1, Math.max(0, (d - .45) / .55)), hi = hq * hq * (3 - 2 * hq) * .3;
             const i = (y * gw + x) * 4;
-            px[i]     = pal[0][0] + (pal[1][0] - pal[0][0]) * m + (pal[2][0] - pal[0][0]) * hi;
-            px[i + 1] = pal[0][1] + (pal[1][1] - pal[0][1]) * m + (pal[2][1] - pal[0][1]) * hi;
-            px[i + 2] = pal[0][2] + (pal[1][2] - pal[0][2]) * m + (pal[2][2] - pal[0][2]) * hi;
+            for (let c = 0; c < 3; c++) {
+              const a0 = pal[0][c], a1 = pal[1][c], a2 = pal[2][c];
+              let v = g < .5 ? a0 + (a1 - a0) * (g * 2) : a1 + (a2 - a1) * ((g - .5) * 2 * .5);
+              px[i + c] = v + (a2 - v) * hi;
+            }
             px[i + 3] = Math.min(255, d * 255);
           }
           q.oc.putImageData(q.img, 0, 0);
