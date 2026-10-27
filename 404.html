@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>архив заметок</title>
+  <style>html, body { margin: 0; height: 100%; background: #000; color: #f2f2f2; font: 14px monospace; } a { color: inherit; }</style>
+  <script>
+    /* GitHub Pages отдаёт этот файл на любой несуществующий адрес. Сразу уводим на главную.
+       Проектный сайт (имя.github.io/репозиторий/) живёт не в корне, поэтому для github.io берём первый сегмент пути
+       как имя репозитория; на своём домене или на сайте-пользователе главная лежит в корне. */
+    (() => {
+      const REPO = "notes";                                   // имя репозитория, если сайт открыт как ibuzy.github.io/notes/
+      const onGh = /\.github\.io$/i.test(location.hostname);
+      const base = onGh && location.pathname.split("/")[1] === REPO ? "/" + REPO + "/" : "/";
+      window.__home = base;
+      if (location.pathname !== base) location.replace(base);   // replace: «назад» не возвращает на битый адрес
+    })();
+  </script>
+</head>
+<body>
+  <noscript><p><a href="./">перейти на главную</a></p></noscript>
+</body>
+</html>

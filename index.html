@@ -37,7 +37,7 @@
     Одновременно не больше 3 (на телефоне 2), появляются далеко друг от друга, от планет и созвездий.
   • Чёрные дыры на фоне: пять настоящих (Стрелец A*, M87*, Лебедь X-1, TON 618, Gaia BH1) с вращающимся аккреционным диском,
     ореолом, дугой линзирования и (у M87* и Лебедя X-1) джетами; под каждой подпись. Одновременно не больше одной.
-  • Туманности: самый нижний слой фона (отдельный canvas #neb под основным). Очень тусклые, разных цветов
+  • Туманности: самый нижний слой фона (отдельный canvas #neb под основным). Приглушённой яркости, разных цветов
     (шесть приглушённых палитр), небольшие; газ в них непрерывно движется (течение, вихрь, расползание краёв),
     медленно проявляются, дрейфуют, «дышат» и растворяются.
     Одновременно не больше трёх (экран от 1600px; от 600px — две, на телефоне одна), разных палитр и далеко друг от друга; с остальными объектами не взаимодействуют.
@@ -78,6 +78,7 @@
     /* применяем сохранённые тему и режим анимаций до отрисовки, чтобы не было мигания */
     const d = document.documentElement;
     d.classList.add("booting");
+    window.__appReady = new Promise(r => { window.__appResolve = r; });
     d.dataset.theme = "dark";                    // по умолчанию тёмная тема; «light» только если выбрана вручную
     try {
       const m = localStorage.getItem("motion");
@@ -90,15 +91,18 @@
   <style>
     #boot { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: #000; color: #f2f2f2; transition: opacity .5s ease; }
     #boot.hide { opacity: 0; pointer-events: none; }
-    #boot i { display: block; width: 32px; height: 4px; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px); animation: boot-load 1.2s ease-in-out infinite; }
-    @keyframes boot-load { 0% { clip-path: inset(0 100% 0 0); } 25% { clip-path: inset(0 75% 0 0); } 50% { clip-path: inset(0 50% 0 0); } 75% { clip-path: inset(0 25% 0 0); } 100% { clip-path: inset(0 0 0 0); } }
+    /* квадратики проявляются слева направо: чёрная шторка сдвигается шагами. Анимация transform идёт в compositor,
+       поэтому продолжает крутиться, даже когда главный поток занят скриптами страницы */
+    #boot i { position: relative; display: block; width: 32px; height: 4px; overflow: hidden; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px); }
+    #boot i::after { content: ""; position: absolute; inset: 0; background: #000; will-change: transform; animation: boot-load 1.2s steps(5, end) infinite; }
+    @keyframes boot-load { from { transform: translateX(0); } to { transform: translateX(100%); } }
     /* пока идёт загрузка, анимации появления стоят на первом кадре и стартуют, когда экран загрузки уходит */
     html.booting *, html.booting ::before, html.booting ::after { animation-play-state: paused !important; }
-    html.booting #boot i { animation-play-state: running !important; }
+    html.booting #boot i::after, html.booting .load-screen i::after { animation-play-state: running !important; }
     html.booting { overflow: hidden; }
   </style>
   <noscript><style>#boot { display: none; }</style></noscript>
-  <link rel="stylesheet" href="style.css?v=35">
+  <link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
 
@@ -270,7 +274,7 @@
     /* Тексты писем лежат в зашифрованном файле letters.enc (см. private/encrypt.mjs).
        В этом коде их нет: они появляются в памяти только после ввода верного кода
        и пропадают при перезагрузке страницы. */
-    (() => {
+    const startApp = () => {
       const $ = id => document.getElementById(id);
       const root = document.documentElement;
       const isOff = () => root.dataset.motion === "off";
@@ -635,11 +639,12 @@
       /* подъём блока кода привязан к полю кода, а не к :focus-within: клик по «запомнить меня» (в том числе на телефоне,
          где метка забирает фокус себе) не должен его опускать. Опускается только когда фокус ушёл куда-то ещё. */
       /* экранная клавиатура на телефоне: браузер уменьшает видимую область, и кнопка «что за проект?» (она закреплена у нижнего края)
-         подпрыгивала вместе с ней. Пока клавиатура открыта, кнопка плавно прячется (класс kb на body), потом так же возвращается на место. */
+         подпрыгивала вместе с ней. Пока клавиатура открыта, кнопка плавно прячется (класс kb на body), потом так же возвращается на место.
+          Приближение страницы пальцами (pinch-zoom) клавиатурой не считается: высота видимой области там умножается на масштаб. */
       const vv = window.visualViewport, coarse = matchMedia("(pointer: coarse)");
       let baseW = 0, baseH = 0;
       const checkKb = () => {
-        const w = innerWidth, hh = vv ? vv.height : innerHeight;
+        const w = innerWidth, hh = vv ? vv.height * vv.scale : innerHeight;   // × scale: при pinch-zoom видимая область тоже уменьшается, но это не клавиатура
         if (w !== baseW) { baseW = w; baseH = hh; }          // ширина изменилась (поворот экрана): считаем заново
         baseH = Math.max(baseH, hh);                         // полная высота без клавиатуры
         document.body.classList.toggle("kb", coarse.matches && baseH - hh > 120);
@@ -2279,7 +2284,7 @@
       })();
 
       /* ---------- Туманности ----------
-         Самый нижний слой (canvas #neb под #px). Небольшие, очень тусклые, разных цветов, одновременно не больше 3 (на телефоне 1),
+         Самый нижний слой (canvas #neb под #px). Небольшие, тусклые, разных цветов, одновременно не больше 3 (на телефоне 1),
          с объектами не взаимодействуют. Облако газа пересчитывается на мелкой сетке ~30 раз в секунду:
          слои шума течут в разные стороны, облако закручивается, клубы рвутся и срастаются, края расползаются —
          как будто газ распыляется. Растягивается браузером со сглаживанием, поэтому выглядит мягким дымом. */
@@ -2329,7 +2334,7 @@
             fx: rnd(.05, .11), fy: rnd(.04, .09), ph: rnd(0, 6.28),                         // скорости течения слоёв
             x: bx, y: by,
             vx: rnd(-1.4, 1.4), vy: rnd(-1.1, 1.1),
-            life: rnd(55, 90), fade: rnd(8, 12), peak: rnd(.07, .11), br: rnd(0, 6.28), bf: rnd(.1, .22),
+            life: rnd(55, 90), fade: rnd(8, 12), peak: rnd(.10, .155), br: rnd(0, 6.28), bf: rnd(.1, .22),
             t0: 0, acc: rnd(0, STEP)
           };
         }
@@ -2411,7 +2416,11 @@
         next = performance.now() / 1000 + .3;
         sync();
       })();
-    })();
+    };
+    /* основной скрипт тяжёлый и блокирует страницу; запускаем его только после того, как браузер хотя бы раз нарисовал
+       экран загрузки (двойной rAF + таймер), и только потом сообщаем, что страница готова */
+    const runApp = () => { try { startApp(); } finally { window.__appResolve && window.__appResolve(); } };
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(runApp, 30)));
   </script>
   <script>
     /* экран загрузки уходит, когда готово всё: страница, стили, картинки и шрифт;
@@ -2434,8 +2443,9 @@
         }, wait);
       };
       const loaded = new Promise(r => document.readyState === "complete" ? r() : addEventListener("load", r, { once: true }));
+      const app = window.__appReady || Promise.resolve();   // основной скрипт запущен и страница собрана
       const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-      Promise.all([loaded, fonts]).then(finish, finish);
+      Promise.all([loaded, app, fonts]).then(finish, finish);
       setTimeout(finish, 10000);
     })();
   </script>
