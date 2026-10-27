@@ -473,9 +473,9 @@ body.menu .gear-toggle svg { rotate: 90deg; }      /* шестерёнка по�
   justify-content: center;
   text-align: center;
   padding: calc(max(16px, env(safe-area-inset-top)) + 72px) 0 calc(max(16px, env(safe-area-inset-bottom)) + 44px);
-  transition: opacity .6s var(--ease);
+  transition: opacity .6s var(--ease) .3s;      /* при возврате с заметки главная проявляется, пока лист ещё складывается */
 }
-body.reading .home { opacity: 0; pointer-events: none; transition-duration: .3s; }
+body.reading .home { opacity: 0; pointer-events: none; transition: opacity .3s var(--ease); }
 
 h1 {
   font-weight: normal;
@@ -937,7 +937,8 @@ body.kb .about > * { pointer-events: none; }
   perspective-origin: 50% 0;
   visibility: hidden;
   opacity: 0;
-  transition: opacity .5s var(--ease), visibility 0s linear 1s;
+  /* при закрытии лист сначала складывается обратно (см. .sheet), и только в самом конце окно растворяется */
+  transition: opacity .4s var(--ease) .5s, visibility 0s linear .95s;
 }
 .viewer.open {
   visibility: visible;
@@ -1013,9 +1014,10 @@ body.peek #px { filter: none !important; }
   transform-origin: 50% 0;
   transform: rotateX(-90deg);
   backface-visibility: hidden;
-  transition: transform .95s var(--ease);
+  transition: transform .85s cubic-bezier(.55, 0, .35, 1), opacity .5s var(--ease) .15s;   /* закрытие: складывается вверх и к концу гаснет */
 }
-.viewer.open .sheet { transform: none; }
+.viewer.open .sheet { transform: none; opacity: 1; transition: transform .95s var(--ease), opacity .3s var(--ease); }
+.viewer:not(.open) .sheet { opacity: 0; }
 
 .back { margin-bottom: clamp(32px, 6vh, 64px); font-size: 16px; color: var(--muted); }
 .back:hover, .back:focus-visible { color: var(--ink); }

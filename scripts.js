@@ -820,6 +820,7 @@
         }
 
         viewer.scrollTop = 0;
+        viewer.querySelector(".sheet").style.transformOrigin = viewer.style.perspectiveOrigin = "";
         document.body.classList.add("reading");
         viewer.setAttribute("aria-hidden", "false");
         void viewer.offsetWidth;                 // фиксируем начальный кадр, чтобы переход точно запустился
@@ -830,12 +831,16 @@
 
       function closeLetter(fromPopState) {
         if (!viewer.classList.contains("open")) return;
+        /* шарнир сгиба — у верхнего края видимой области, а не у начала длинного текста, ушедшего вверх при прокрутке */
+        const sheetEl = viewer.querySelector(".sheet"), sy = viewer.scrollTop;
+        sheetEl.style.transformOrigin = "50% " + sy + "px";
+        viewer.style.perspectiveOrigin = "50% " + sy + "px";
         viewer.classList.remove("open");
         viewer.setAttribute("aria-hidden", "true");
         document.body.classList.remove("reading");
         resetAway();                              // логотип и кнопки (на телефоне) возвращаются на место, а не только логотип
         if (sortDirty) { sortDirty = false; renderList(); }   // порядок «по избранным» мог измениться, пока заметка была открыта
-        setTimeout(() => { if (!viewer.classList.contains("open")) viewer.scrollTop = 0; }, 1050);   // когда окно уже скрыто, сбрасываем старую прокрутку
+        setTimeout(() => { if (!viewer.classList.contains("open")) { viewer.scrollTop = 0; sheetEl.style.transformOrigin = viewer.style.perspectiveOrigin = ""; } }, 1050);   // когда окно уже скрыто, сбрасываем старую прокрутку
         if (lastTrigger) lastTrigger.focus({ preventScroll: true });
         if (!fromPopState && history.state && history.state.letter !== undefined) history.back();
       }
@@ -1442,8 +1447,35 @@
             const k = rnd(40, 110) / (dd || 1);
             debris.push({ x: cx, y: cy, vx: (cx - c.x) * k + c.pvx * .15, vy: (cy - c.y) * k + c.pvy * .15, col, fade: 0, scatter: true });
           }
+          /* осталось меньше половины планеты: оставшиеся клетки разлетаются пикселями, планета (и подпись) исчезает */
+          let total = 0;
+          for (const [, xy] of pl.d.groups) total += xy.length / 2;
+          if (total - pl.gone.size < total * .5) {
+            for (const [col, xy] of pl.d.groups) for (let i = 0; i < xy.length; i += 2) {
+              const key = xy[i + 1] * 100 + xy[i];
+              if (pl.gone.has(key)) continue;
+              pl.gone.add(key);
+              const cx = ox + (xy[i] + .5) * CELL, cy = pl.y + (xy[i + 1] + .5) * CELL, dd = Math.hypot(cx - c.x, cy - c.y) || 1, k = rnd(35, 120) / dd;
+              debris.push({ x: cx, y: cy, vx: (cx - c.x) * k + rnd(-25, 25) + c.pvx * .15, vy: (cy - c.y) * k + rnd(-25, 25) + c.pvy * .15, col, fade: rnd(0, .25), scatter: true });
+            }
+            pl.shattered = true;
+          }
+        }
+        /* атмосфера повреждённой планеты: только снаружи; у выбоин и отколотых краёв обводки нет */
+        function planetHalo(q) {
+          if (!q.gone || !q.gone.size) return q.d.halo;
+          if (q.haloN === q.gone.size) return q.haloC;
+          const alive = new Set();
+          for (const [, xy] of q.d.groups) for (let i = 0; i < xy.length; i += 2) {
+            const key = xy[i + 1] * 100 + xy[i];
+            if (!q.gone.has(key)) alive.add(key);
+          }
+          q.haloC = q.d.halo.filter(([x, y]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => alive.has((y + dy) * 100 + x + dx)));
+          q.haloN = q.gone.size;
+          return q.haloC;
         }
         function drawPlanet(q, t, dt) {
+          if (q.shattered) return true;                        // рассыпалась от удара кометы
           q.y -= q.v * dt;
           if (q.y + q.ph + 12 < 0) return true;
           for (const w of wells) {
@@ -1483,7 +1515,7 @@
           /* лёгкая анимация: атмосфера «дышит» (слабый ореол в одну клетку вокруг силуэта) */
           ctx.globalAlpha = a * frac * (.11 + .08 * Math.sin(t * .8 + q.p));
           ctx.fillStyle = q.d.haloColor;
-          for (const [hx, hy] of q.d.halo) ctx.fillRect(ox + hx * cs, oy + hy * cs, cs, cs);
+          for (const [hx, hy] of planetHalo(q)) ctx.fillRect(ox + hx * cs, oy + hy * cs, cs, cs);
           ctx.globalAlpha = a * .55;
           for (const [col, xy] of q.d.groups) {
             ctx.fillStyle = col;
