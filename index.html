@@ -91,22 +91,30 @@
   <style>
     #boot { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: #000; color: #f2f2f2; transition: opacity .5s ease; }
     #boot.hide { opacity: 0; pointer-events: none; }
-    /* квадратики проявляются слева направо: чёрная шторка сдвигается шагами. Анимация transform идёт в compositor,
-       поэтому продолжает крутиться, даже когда главный поток занят скриптами страницы */
-    #boot i { position: relative; display: block; width: 32px; height: 4px; overflow: hidden; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px); }
-    #boot i::after { content: ""; position: absolute; inset: 0; background: #000; will-change: transform; animation: boot-load 1.2s steps(5, end) infinite; }
-    @keyframes boot-load { from { transform: translateX(0); } to { transform: translateX(100%); } }
+    /* четыре отдельных квадрата включаются по очереди слева направо (по прозрачности, шагами). Анимация opacity идёт в compositor,
+       поэтому крутится, даже когда главный поток занят скриптами страницы; отдельные квадраты, а не шторка поверх полоски,
+       чтобы в браузерах с дробным масштабом экрана (Яндекс) не оставалось тонких линий на месте ещё не загоревшихся квадратов */
+    #boot i, .load-screen i { position: relative; display: block; width: 32px; height: 4px; }
+    #boot i b, .load-screen i b { position: absolute; top: 0; width: 4px; height: 4px; background: currentColor; opacity: 0; will-change: opacity; animation: 1.2s step-end infinite; }
+    #boot i b:nth-child(1), .load-screen i b:nth-child(1) { left: 0;    animation-name: boot-sq1; }
+    #boot i b:nth-child(2), .load-screen i b:nth-child(2) { left: 8px;  animation-name: boot-sq2; }
+    #boot i b:nth-child(3), .load-screen i b:nth-child(3) { left: 16px; animation-name: boot-sq3; }
+    #boot i b:nth-child(4), .load-screen i b:nth-child(4) { left: 24px; animation-name: boot-sq4; }
+    @keyframes boot-sq1 { 0% { opacity: 0; } 20% { opacity: 1; } }
+    @keyframes boot-sq2 { 0% { opacity: 0; } 40% { opacity: 1; } }
+    @keyframes boot-sq3 { 0% { opacity: 0; } 60% { opacity: 1; } }
+    @keyframes boot-sq4 { 0% { opacity: 0; } 80% { opacity: 1; } }
     /* пока идёт загрузка, анимации появления стоят на первом кадре и стартуют, когда экран загрузки уходит */
     html.booting *, html.booting ::before, html.booting ::after { animation-play-state: paused !important; }
-    html.booting #boot i::after, html.booting .load-screen i::after { animation-play-state: running !important; }
+    html.booting #boot i b, html.booting .load-screen i b { animation-play-state: running !important; }
     html.booting { overflow: hidden; }
   </style>
   <noscript><style>#boot { display: none; }</style></noscript>
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
 
-  <div id="boot" role="status" aria-label="загрузка"><i></i></div>
+  <div id="boot" role="status" aria-label="загрузка"><i><b></b><b></b><b></b><b></b></i></div>
 
   <canvas id="neb" aria-hidden="true"></canvas>
   <canvas id="px" aria-hidden="true"></canvas>
@@ -422,7 +430,7 @@
         scr.className = "load-screen hide";
         scr.setAttribute("role", "status");
         scr.setAttribute("aria-label", "загрузка");
-        scr.innerHTML = "<i></i>";
+        scr.innerHTML = "<i><b></b><b></b><b></b><b></b></i>";
         document.body.append(scr);
         void scr.offsetWidth;
         scr.classList.remove("hide");

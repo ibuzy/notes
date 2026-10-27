@@ -70,9 +70,8 @@ input::selection { background: var(--ink); color: var(--paper); }
 /* ---------- Чёрный экран после входа (создаёт скрипт; такой же, как экран загрузки страницы #boot) ---------- */
 .load-screen { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: #000; color: #f2f2f2; transition: opacity .5s ease; }
 .load-screen.hide { opacity: 0; pointer-events: none; }
-.load-screen i { position: relative; display: block; width: 32px; height: 4px; overflow: hidden; background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px); }
-.load-screen i::after { content: ""; position: absolute; inset: 0; background: #000; will-change: transform; animation: boot-load 1.2s steps(5, end) infinite; }   /* keyframes boot-load лежат в index.html (инлайн-стили) */
-html.booting .load-screen i::after { animation-play-state: running !important; }   /* индикатор крутится, пока остальные анимации стоят */
+/* сам индикатор (i с четырьмя b) и keyframes boot-sq1…4 описаны в инлайн-стилях index.html */
+html.booting .load-screen i b { animation-play-state: running !important; }   /* индикатор крутится, пока остальные анимации стоят */
 
 /* ---------- Туманности (самый нижний слой, рисует скрипт) ---------- */
 #neb {
