@@ -916,19 +916,14 @@
           /* движение считается по шагам (скорость + ускорение), а не по готовой параболе: так чёрная дыра может искривить путь кометы.
              Без дыры получается ровно та же парабола: по горизонтали равномерно, вниз с постоянным ускорением */
           if (q.pvx === undefined) { q.pvx = q.dir * q.vx; q.pvy = q.vy0; q.x = q.x0; q.y = q.y0; }
-          if (q.boom === undefined) {
+          if (q.boom === undefined && q.sink === undefined) {
             q.pvy += q.g * dt;
             for (const w of wells) {
               const wx = w.x - q.x, wy = w.y - q.y, wd = Math.hypot(wx, wy) || 1;
               if (wd > w.R * 1.15) continue;
               const u = 1 - wd / (w.R * 1.15), a = (60 + 2600 * u * u) * w.k;
               q.pvx += wx / wd * a * dt; q.pvy += wy / wd * a * dt;
-              if (wd < w.rc + 4) {                                              // долетела до тени — взрыв
-                q.boom = 0;
-                q.parts = [];
-                for (let i = 0; i < 24; i++) q.parts.push({ ang: rnd(0, 6.283), sp: rnd(.5, 1.5) * 56, sz: rnd(1.5, 3.2), tone: Math.random() });
-                break;
-              }
+              if (wd < w.rc * .95) { q.sink = 0; break; }                       // влетела в чёрную область: взрыва нет, комета проваливается в центр и гаснет
             }
             if (q.boom === undefined) {
               const sx0 = q.x, sy0 = q.y;
@@ -960,13 +955,23 @@
               }
             }
           }
+          /* падение в чёрную дыру: комета быстро втягивается к центру тени, сжимается и гаснет (sink идёт от 0 до 1 за ~0.45 с) */
+          if (q.sink !== undefined) {
+            q.sink += dt / .45;
+            let best = null, bd = Infinity;
+            for (const w of wells) { const dd = Math.hypot(w.x - q.x, w.y - q.y); if (dd < bd) { bd = dd; best = w; } }
+            if (!best || q.sink >= 1) return true;
+            const pk = 1 - Math.exp(-dt * 9), dm = Math.exp(-dt * 6);
+            q.x += (best.x - q.x) * pk; q.y += (best.y - q.y) * pk;
+            q.pvx *= dm; q.pvy *= dm;
+          }
           if (q.y > H + 40 || q.x < -60 || q.x > W + 60) return true;       // ушла за край — убираем
           const vx = q.pvx, vy = q.pvy;
           const sp = Math.hypot(vx, vy) || 1;
           const ux = vx / sp, uy = vy / sp, nx = -uy, ny = ux;              // направление движения и перпендикуляр
 
           // точки хвоста оставляются на пройденном пути; их разброс и жизнь неровные, поэтому края хвоста рваные
-          if (q.boom === undefined) q.acc += dt * 110;
+          if (q.boom === undefined && q.sink === undefined) q.acc += dt * 110;
           while (q.acc >= 1) {
             q.acc -= 1;
             q.trail.push({ x: q.x, y: q.y, nx, ny, age: 0, life: rnd(.55, .95), r: rnd(-1, 1), tone: Math.random(), sz: rnd(1.6, 3) });
@@ -975,7 +980,8 @@
           const [r, g, b] = q.color;
           const fadeIn = Math.min(1, L * 3);
           const edge = Math.max(0, Math.min(1, (H + 30 - q.y) / 140, (q.x + 30) / 100, (W + 30 - q.x) / 100));
-          const alpha = Math.min(fadeIn, edge);
+          const sk = q.sink === undefined ? 1 : Math.max(0, 1 - q.sink);     // при падении в дыру комета уменьшается и гаснет
+          const alpha = Math.min(fadeIn, edge) * sk;
           const flicker = .86 + .14 * Math.sin(t * 9 + q.flickerSeed);       // у головы мерцание слабое: она не должна походить на звезду
           ctx.save();
           ctx.globalCompositeOperation = "lighter";
@@ -1036,7 +1042,7 @@
 
           // ядро: неровный камень с освещённым боком
           ctx.save();
-          const cell = Math.max(2, Math.round(1.7 * D));
+          const cell = q.sink === undefined ? Math.max(2, Math.round(1.7 * D)) : Math.max(1, Math.round(1.7 * D * sk));
           const hx = gx - Math.floor(cell * 3.5), hy = gy - Math.floor(cell * 3.5);
           const shade = { h: "rgb(244,229,190)", m: `rgb(${r},${g},${b})`, d: `rgb(${Math.round(r * .52)},${Math.round(g * .5)},${Math.round(b * .42)})` };
           ctx.globalAlpha = alpha * flicker;
