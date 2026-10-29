@@ -1603,9 +1603,11 @@
           if (q.shattered) return true;                        // рассыпалась от удара кометы
           q.y -= q.v * dt;
           if (q.y + q.ph + 12 < 0) return true;
+          let lab = 1;                                          // прозрачность подписи: гаснет заранее, пока планету только подтягивает к дыре
           for (const w of wells) {
             const wx = w.x - (q.x + q.pw / 2), wy = w.y - (q.y + q.ph / 2), wd = Math.hypot(wx, wy) || 1;
             if (wd > w.R * 1.4) continue;
+            lab = Math.min(lab, clamp01((wd / (w.R * 1.4) - .52) / .2));
             const u = 1 - wd / (w.R * 1.4), sp = (4 + 100 * u * u) * w.k * dt;
             q.x += wx / wd * sp; q.y += wy / wd * sp;
             if (!q.crumble && wd < w.R * .75) startCrumble(q, w);
@@ -1664,7 +1666,7 @@
           }
           /* название: впритык под планетой, того же размера и вида, что у созвездий */
           ctx.fillStyle = color;
-          ctx.globalAlpha = a * .5 * frac;
+          ctx.globalAlpha = a * .5 * frac * (cr ? 0 : lab);      // как только планета начала рассыпаться, подписи уже нет
           ctx.font = labelFont();
           ctx.textBaseline = "top";
           ctx.fillText(q.d.n, ox, oy + Math.round((q.ph + 3) * D));
