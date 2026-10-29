@@ -941,9 +941,14 @@
                 const kx = sx0 + (q.x - sx0) * k / steps, ky = sy0 + (q.y - sy0) * k / steps;
                 for (const pl of planets) {
                   if (planetAlpha(pl) < .5) continue;                       // планета у края экрана почти невидима: удара нет
+                  if (pl.dissolve) continue;                                // газовая планета уже рассеивается: комета летит сквозь неё
                   const pcx = pl.x + (pl.ox || 0) + pl.pw / 2, pcy = pl.y + (pl.oy || 0) + pl.ph / 2;
                   if (Math.hypot(kx - pcx, ky - pcy) > Math.hypot(pl.pw, pl.ph) / 2 + pl.amp + 22) continue;   // грубый отсев по габариту
                   if (!planetSolidNear(pl, t, kx, ky, CELL * 1.2)) continue;        // точная проверка: комета касается уцелевшей клетки
+                  if (pl.d.gas) {                                           // газовый гигант: комета пролетает насквозь, планета рассеивается как газ
+                    startDissolve(pl, { x: kx, y: ky, pvx: q.pvx, pvy: q.pvy }, t);
+                    continue;
+                  }
                   q.x = kx; q.y = ky;                                       // взрыв ровно в точке касания
                   const vl = Math.hypot(q.pvx, q.pvy) || 1;
                   hitPlanet(pl, { x: kx + q.pvx / vl * 5, y: ky + q.pvy / vl * 5, pvx: q.pvx, pvy: q.pvy }, t);   // выбоина чуть глубже точки касания, по ходу полёта
@@ -1332,14 +1337,14 @@
               ["..owo..", ".olloo.", "ollowoo", "oollooo", "woolloo", ".ooowo.", "..ooo.."], { o: "#4f79ad", l: "#5e9460", w: "#d5dde3" }) },
           { n: "марс", w: 5, h: 5, fill: fromMap(
               [".ppp.", "rrdrr", "rdrrr", "rrrdr", ".rrr."], { r: "#b9694c", d: "#8c4a37", p: "#dcd3cc" }) },
-          { n: "юпитер", w: 11, h: 11, fill: cells => {
+          { n: "юпитер", w: 11, h: 11, gas: true, fill: cells => {
               const bands = ["#cdb48f", "#a97b55", "#d8c7aa", "#9a6a45", "#c8a47a", "#b08258", "#d6c0a0", "#9a6a45", "#c8a47a", "#a97b55", "#cdb48f"];
               sphere(cells, 11, 0, 0, (x, y) => {
                 if ((y === 6 && (x === 7 || x === 8)) || (y === 7 && x === 8)) return "#b4573f";   // красное пятно
                 return bands[Math.min(10, y + (((x * 3 + y * 5) % 7 === 0) ? 1 : 0))];
               });
             } },
-          { n: "сатурн", w: 19, h: 11, fill: cells => {
+          { n: "сатурн", w: 19, h: 11, gas: true, fill: cells => {
               const bands = ["#dccb9c", "#c7ad76", "#d6c08c", "#bfa468", "#d3bd8a", "#c4aa72", "#dccb9c", "#c7ad76", "#d3bd8a"];
               sphere(cells, 9, 5, 1, (x, y) => bands[y]);
               for (let y = 0; y < 11; y++) for (let x = 0; x < 19; x++) {      // кольцо: задняя часть скрыта за шаром
@@ -1350,9 +1355,9 @@
                 cells.push([x, y, o > .62 ? "#c9b88e" : "#a8956b"]);
               }
             } },
-          { n: "уран", w: 9, h: 9, fill: banded(9,
+          { n: "уран", w: 9, h: 9, gas: true, fill: banded(9,
               ["#a8d6d8", "#98cacd", "#8fc4c8", "#98cacd", "#a8d6d8", "#98cacd", "#8fc4c8", "#7fb6bd", "#8fc4c8"]) },
-          { n: "нептун", w: 9, h: 9, fill: banded(9,
+          { n: "нептун", w: 9, h: 9, gas: true, fill: banded(9,
               ["#5f80cc", "#4f6fb8", "#4d6cb8", "#5b7bc6", "#4a68b2", "#4f6fb8", "#3f5aa0", "#4a68b2", "#4f6fb8"],
               { "2,2": "#9db4e6", "3,2": "#9db4e6", "5,4": "#2f4182", "6,4": "#2f4182" }) }
         ];
@@ -1486,6 +1491,64 @@
           q.haloN = q.gone.size;
           return q.haloC;
         }
+        /* газовая планета, через которую пролетела комета, рассеивается как газ: клетки от места пролёта расходятся волной,
+           каждая разбухает, закручивается вокруг центра, дрейфует и тает; подпись планеты быстро гаснет */
+        function startDissolve(pl, c, t) {
+          const ox = pl.x + (pl.ox || 0) + Math.sin(t * pl.f + pl.p) * pl.amp, oy = pl.y + (pl.oy || 0);
+          const cells = [];
+          let end = 0;
+          for (const [col, xy] of pl.d.groups) for (let i = 0; i < xy.length; i += 2) {
+            if (pl.gone && pl.gone.has(xy[i + 1] * 100 + xy[i])) continue;
+            const cx = ox + (xy[i] + .5) * CELL, cy = oy + (xy[i + 1] + .5) * CELL, dd = Math.hypot(cx - c.x, cy - c.y);
+            const ang = rnd(0, 6.283), sp = rnd(4, 16);
+            const cell = { x: xy[i], y: xy[i + 1], col, d: dd * .014 + rnd(0, .3), life: rnd(1.3, 2.2),
+                           vx: Math.cos(ang) * sp + c.pvx * .04, vy: Math.sin(ang) * sp + c.pvy * .04, sw: rnd(-.9, .9) };
+            end = Math.max(end, cell.d + cell.life);
+            cells.push(cell);
+          }
+          pl.dissolve = { age: 0, cells, end };
+        }
+        function drawGasDissolve(q, t, dt, a) {
+          const ds = q.dissolve;
+          ds.age += dt;
+          if (ds.age >= ds.end) return true;                    // газ рассеялся целиком
+          if (a <= .01) return false;
+          const ox = q.x + (q.ox || 0) + Math.sin(t * q.f + q.p) * q.amp, oy = q.y + (q.oy || 0);
+          const pcx = ox + q.pw / 2, pcy = oy + q.ph / 2, cs = Math.round(CELL * D);
+          ctx.globalCompositeOperation = "destination-out";     // пока клетка цела, она перекрывает то, что под ней
+          ctx.fillStyle = "#000";
+          ctx.globalAlpha = a;
+          for (const c of ds.cells) if (ds.age < c.d) ctx.fillRect(Math.round((ox + c.x * CELL) * D), Math.round((oy + c.y * CELL) * D), cs, cs);
+          ctx.globalCompositeOperation = "source-over";
+          for (const c of ds.cells) {
+            const s = ds.age - c.d;
+            if (s < 0) {                                        // ещё не дошло до этой клетки
+              ctx.fillStyle = c.col;
+              ctx.globalAlpha = a * .55;
+              ctx.fillRect(Math.round((ox + c.x * CELL) * D), Math.round((oy + c.y * CELL) * D), cs, cs);
+              continue;
+            }
+            const u = s / c.life;
+            if (u >= 1) continue;
+            const e = 1 - (1 - u) * (1 - u);
+            const rx = ox + (c.x + .5) * CELL - pcx, ry = oy + (c.y + .5) * CELL - pcy;
+            const an = c.sw * e * .8, ca = Math.cos(an), sa = Math.sin(an), ex = 1 + .45 * e;
+            const px = pcx + (rx * ca - ry * sa) * ex + c.vx * s, py = pcy + (rx * sa + ry * ca) * ex + c.vy * s;
+            const sz = CELL * (1 + 1.8 * e), zs = Math.max(1, Math.round(sz * D));
+            ctx.fillStyle = c.col;
+            ctx.globalAlpha = a * .5 * (1 - u) * (1 - u);
+            ctx.fillRect(Math.round((px - sz / 2) * D), Math.round((py - sz / 2) * D), zs, zs);
+          }
+          const lf = clamp01(1 - ds.age / .9);                  // подпись пропадает почти сразу
+          if (lf > .01) {
+            ctx.fillStyle = color;
+            ctx.globalAlpha = a * .5 * lf;
+            ctx.font = labelFont();
+            ctx.textBaseline = "top";
+            ctx.fillText(q.d.n, Math.round(ox * D), Math.round(oy * D) + Math.round((q.ph + 3) * D));
+          }
+          return false;
+        }
         function drawPlanet(q, t, dt) {
           if (q.shattered) return true;                        // рассыпалась от удара кометы
           q.y -= q.v * dt;
@@ -1498,6 +1561,7 @@
             if (!q.crumble && wd < w.R * .75) startCrumble(q, w);
           }
           nudge(q, dt, 70, 5);
+          if (q.dissolve) return drawGasDissolve(q, t, dt, planetAlpha(q));
           const cr = q.crumble;
           if (cr) {
             cr.acc += cr.rate * dt;
