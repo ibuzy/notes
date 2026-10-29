@@ -1270,15 +1270,57 @@
           const a = clamp01((H - q.y) / edge) * clamp01((q.y + q.ph) / edge);
           if (a <= 0) return;
           const ox = q.x + Math.sin(t * q.f + q.p) * q.amp;
-          const pt = i => [ox + (c.s[i][0] - c.x0) * k, q.y + (c.s[i][1] - c.y0) * k];
+          /* чёрная дыра тянет отдельные звёзды созвездия (как летающие пиксели: по спирали, чем ближе, тем сильнее).
+             s: 0 — звезда на месте, 1 — падает в тень (сжимается), 2 — исчезла; ox/oy — смещение от своего места в фигуре.
+             Вне зоны дыры смещение плавно возвращается к нулю. Как только хоть одна звезда упала в тень, название созвездия гаснет навсегда,
+             а линии к исчезнувшим звёздам рассыпаются */
+          const S = q.st || (q.st = c.s.map(() => ({ ox: 0, oy: 0, s: 0, t: 0 })));
+          const E = q.ef || (q.ef = c.e.map(() => 1));
+          if (q.lf === undefined) q.lf = 1;
+          if (q.hit) q.lf = Math.max(0, q.lf - dt / .8);
+          for (let i = 0; i < c.s.length; i++) {
+            const s = S[i];
+            if (s.s === 2) continue;
+            const x = ox + (c.s[i][0] - c.x0) * k + s.ox, y = q.y + (c.s[i][1] - c.y0) * k + s.oy;
+            if (s.s === 1) {                                     // падает: быстро втягивается к центру тени
+              let best = null, bd = Infinity;
+              for (const w of wells) { const dd = Math.hypot(w.x - x, w.y - y); if (dd < bd) { bd = dd; best = w; } }
+              s.t += dt / .4;
+              if (!best || s.t >= 1) { s.s = 2; continue; }
+              const pk = 1 - Math.exp(-dt * 10);
+              s.ox += (best.x - x) * pk; s.oy += (best.y - y) * pk;
+              continue;
+            }
+            let inf = false;
+            for (const w of wells) {
+              const wx = w.x - x, wy = w.y - y, wd = Math.hypot(wx, wy) || 1;
+              if (wd > w.R) continue;
+              inf = true;
+              const u = 1 - wd / w.R, nx = wx / wd, ny = wy / wd, sp = (30 + 420 * u * u) * w.k * dt;
+              s.ox += nx * sp - ny * sp * .45;
+              s.oy += ny * sp + nx * sp * .45;
+              if (wd < w.rc) { s.s = 1; s.t = 0; q.hit = true; break; }
+            }
+            if (!inf) { const dk = Math.exp(-dt * 1.2); s.ox *= dk; s.oy *= dk; }
+          }
+          const pt = i => [ox + (c.s[i][0] - c.x0) * k + S[i].ox, q.y + (c.s[i][1] - c.y0) * k + S[i].oy];
 
           /* линии: пунктир из пикселей, прорисовывается по очереди */
           const reveal = clamp01((q.age - .1) / 2) * c.e.length;
           ctx.globalAlpha = a * .38;
           for (let j = 0; j < c.e.length; j++) {
-            const f = clamp01(reveal - j);
+            let f = clamp01(reveal - j);
             if (f <= 0) break;
-            const [x1, y1] = pt(c.e[j][0]), [x2, y2] = pt(c.e[j][1]);
+            let ia = c.e[j][0], ib = c.e[j][1];
+            const da = S[ia].s === 2, db = S[ib].s === 2;
+            if (da && db) continue;
+            if (da || db) {                                       // одна из звёзд исчезла: линия сгорает от неё к оставшейся
+              E[j] = Math.max(0, E[j] - dt / .6);
+              if (da) { ia = c.e[j][1]; ib = c.e[j][0]; }
+              f *= E[j];
+              if (f <= 0) continue;
+            }
+            const [x1, y1] = pt(ia), [x2, y2] = pt(ib);
             const len = Math.hypot(x2 - x1, y2 - y1), n = Math.floor(len * f / 5);
             for (let d = 0; d <= n; d++) {
               const u = d * 5 / len;
@@ -1287,12 +1329,14 @@
           }
           /* звёзды: квадратные пиксели, мерцают ступенями */
           for (let i = 0; i < c.s.length; i++) {
+            if (S[i].s === 2) continue;                           // звезда упала в чёрную дыру
             const [x, y] = pt(i);
             const tw = (Math.sin(t * 1.1 + i * 1.7 + q.p) + 1) / 2;
-            const size = Math.round((2 + c.s[i][2]) * D);
-            ctx.globalAlpha = a * (.55 + .45 * tw);
+            const shr = S[i].s === 1 ? Math.max(0, 1 - S[i].t) : 1;
+            const size = Math.max(1, Math.round((2 + c.s[i][2]) * D * shr));
+            ctx.globalAlpha = a * (.55 + .45 * tw) * shr;
             ctx.fillRect(Math.round(x * D), Math.round(y * D), size, size);
-            if (c.s[i][2] === 2) {                                // яркие звёзды: крест из пикселей
+            if (c.s[i][2] === 2 && S[i].s === 0) {                // яркие звёзды: крест из пикселей
               ctx.globalAlpha = a * .3 * (.4 + tw);
               const r = Math.round(3 * D), s1 = Math.round(D);
               ctx.fillRect(Math.round(x * D) + (size >> 1), Math.round(y * D) - r - s1, s1, r);
@@ -1302,7 +1346,7 @@
             }
           }
           /* название */
-          const la = clamp01((q.age - 1.8) / 1) * a * .5;
+          const la = clamp01((q.age - 1.8) / 1) * a * .5 * q.lf;
           if (la > .01) {
             ctx.globalAlpha = la;
             ctx.font = labelFont();
