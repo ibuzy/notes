@@ -10,7 +10,7 @@
   --paper: #fff;
   --muted: #777;
   --gold: #d49a00;
-  --glass: rgba(255, 255, 255, .58);   /* полупрозрачная заливка окон «код доступа» и «что за проект?» */
+  --glass: rgba(255, 255, 255, .42);   /* полупрозрачная заливка окон «код доступа» и «что за проект?» */
   --ease: cubic-bezier(.65, 0, .35, 1);
   --out: cubic-bezier(.22, 1, .36, 1);   /* плавное появление: быстрый старт, мягкая остановка */
   --tb: 36px;                       /* размер кнопок управления справа сверху */
@@ -22,7 +22,7 @@
 :root[data-theme="dark"] {
   --ink: #f2f2f2;
   --paper: #0a0a0a;
-  --glass: rgba(10, 10, 10, .58);
+  --glass: rgba(10, 10, 10, .42);
   --muted: #8a8a8a;
   --gold: #f2c230;
   color-scheme: dark;
@@ -58,7 +58,8 @@ body {
   user-select: none;
   transition: background-color .5s var(--ease), color .5s var(--ease);
 }
-a, button { -webkit-tap-highlight-color: transparent; }
+a, button, label, .remember, .remember * { -webkit-tap-highlight-color: transparent; }   /* label тоже: иначе на телефоне при касании «запомнить меня» вспыхивает синяя полоса на всю ширину */
+.remember, .remember * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* подпись не выделяется при нажатии и долгом касании */
 a, img { -webkit-touch-callout: none; }
 button:focus, a:focus { outline: none; }
 ::selection { background: transparent; }
@@ -667,7 +668,7 @@ ul { list-style: none; }
 @media (max-width: 600px) {
   .note { display: none; }
   h1 { font-size: 28px; margin-bottom: 0; }          /* заголовок чуть меньше */
-  .letters-box { margin-top: 28px; }                 /* блок заметок и сортировка чуть ниже заголовка */
+  .letters-box { margin-top: 10px; }                 /* блок заметок и строка «заметок: N / сортировка» подняты ближе к заголовку */
 }
 
 @keyframes blink { 50% { opacity: 0; } }
@@ -1010,6 +1011,21 @@ body.reading .fade::after { opacity: 1; }
   mask-image: linear-gradient(to top, #000, transparent 55%);
 }
 
+/* пока письмо открыто, фон слегка затемняется (над холстами фона, под самой заметкой) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, .2);
+  opacity: 0;
+  transition: opacity .5s var(--ease);
+}
+:root:not([data-theme="dark"]) body::before { background: rgba(0, 0, 0, .1); }
+body.reading::before { opacity: 1; }
+body.peek::before { opacity: 0 !important; }
+
 /* пока письмо открыто, фон (пиксели, созвездия, планеты) слегка размыт */
 #px { transition: filter .5s var(--ease); }
 body.reading #px { filter: blur(2px); }
@@ -1191,7 +1207,7 @@ html::-webkit-scrollbar, body::-webkit-scrollbar, .viewer::-webkit-scrollbar { d
   pointer-events: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.6 -.45'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   background-size: 140px 140px;
-  opacity: .07;                     /* шум еле заметен: основной эффект — размытие */
+  opacity: .045;                    /* шум еле заметен: основной эффект — размытие */
 }
 
 /* ---------- Сортировка заметок ----------

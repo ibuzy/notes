@@ -1858,7 +1858,17 @@
           if (a >= L + EX) return true;
           const dark = root.dataset.theme === "dark";
           const rCore = q.n * q.cs / 2, gl = rCore * q.g + 8;      // радиус ядра и свечения, css px
-          const cx = Math.round(q.x * D), cy = Math.round(q.y * D);
+          /* курсор слегка сдвигает звезду (как планеты и чёрные дыры), но заметнее: радиус влияния и сдвиг больше, чем у планет (70 / 5);
+             смещение плавно подтягивается к цели и так же плавно возвращается */
+          q.ox = q.ox || 0; q.oy = q.oy || 0;
+          {
+            const ndx = q.x + q.ox - mx, ndy = q.y + q.oy - my, nd = Math.hypot(ndx, ndy) || 1, nr = 100 + rCore;
+            let tx = 0, ty = 0;
+            if (nd < nr) { const u = 1 - nd / nr, m = 10 * u * u * (3 - 2 * u); tx = ndx / nd * m; ty = ndy / nd * m; }
+            const nk = 1 - Math.exp(-dt * (nd < nr ? 4 : 1.6));
+            q.ox += (tx - q.ox) * nk; q.oy += (ty - q.oy) * nk;
+          }
+          const cx = Math.round((q.x + q.ox) * D), cy = Math.round((q.y + q.oy) * D);
           const cs = Math.max(1, Math.round(q.cs * D));
           let col = q.col, scale = 1, inten = 1, e = 0;
           const boom = a >= L;
