@@ -1915,17 +1915,26 @@
           q.age += dt; q.x += q.vx * dt; q.y += q.vy * dt;
           if (q.y < -40) return true;
           /* звезда рядом с чёрной дырой тоже притягивается; долетев до тени, взрывается (раньше срока) */
-          if (q.age < q.L) {
+          if (q.age < q.L && q.sink === undefined) {
             for (const w of wells) {
               const wx = w.x - q.x, wy = w.y - q.y, wd = Math.hypot(wx, wy) || 1;
               if (wd > w.R * 1.4) continue;
               const u = 1 - wd / (w.R * 1.4), sp = (8 + 320 * u * u) * w.k * dt * .7;
               q.x += wx / wd * sp; q.y += wy / wd * sp;
-              if (q.age > 1 && wd < w.rc + 8) { q.L = q.age; q.vx = q.vy = 0; break; }
+              if (q.age > 1 && wd < w.rc * .95) { q.sink = 0; q.vx = q.vy = 0; break; }   // влетела в чёрную область: без взрыва, затягивается в центр
             }
           }
+          /* падение в чёрную дыру: звезда быстро втягивается к центру тени, сжимается и гаснет (~0.5 с) */
+          if (q.sink !== undefined) {
+            q.sink += dt / .5;
+            let best = null, bd = Infinity;
+            for (const w of wells) { const dd = Math.hypot(w.x - q.x, w.y - q.y); if (dd < bd) { bd = dd; best = w; } }
+            if (!best || q.sink >= 1) return true;
+            const pk = 1 - Math.exp(-dt * 8);
+            q.x += (best.x - q.x) * pk; q.y += (best.y - q.y) * pk;
+          }
           const a = q.age, L = q.L, SH = 2.6, EX = 1.8;
-          if (a >= L + EX) return true;
+          if (q.sink === undefined && a >= L + EX) return true;
           const dark = root.dataset.theme === "dark";
           const rCore = q.n * q.cs / 2, gl = rCore * q.g + 8;      // радиус ядра и свечения, css px
           /* курсор слегка сдвигает звезду (как планеты и чёрные дыры), но заметнее: радиус влияния и сдвиг больше, чем у планет (70 / 5);
@@ -1941,7 +1950,7 @@
           const cx = Math.round((q.x + q.ox) * D), cy = Math.round((q.y + q.oy) * D);
           const cs = Math.max(1, Math.round(q.cs * D));
           let col = q.col, scale = 1, inten = 1, e = 0;
-          const boom = a >= L;
+          const boom = a >= L && q.sink === undefined;
 
           if (boom) {
             e = (a - L) / EX;
@@ -1964,6 +1973,15 @@
             }
           }
 
+          /* при засасывании: в самом начале короткая небольшая вспышка, дальше звезда сжимается и тускнеет */
+          let fl = 0;
+          if (q.sink !== undefined) {
+            const s = Math.min(1, q.sink);
+            fl = Math.max(0, 1 - s / .25);
+            scale *= Math.max(.04, 1 - s);
+            inten *= Math.max(0, 1 - s);
+            col = mixC(col, STAR_HOT, fl * .7);
+          }
           ctx.save();
           ctx.globalCompositeOperation = dark ? "lighter" : "source-over";
           const glow = (rad, al, c) => {
@@ -1994,6 +2012,7 @@
             const breathe = 1 + .1 * Math.sin(t * q.f * 3 + q.p);
             glow(gl * scale * breathe, .5 * inten, col);
             glow(gl * scale * .45, .55 * inten, mixC(col, STAR_HOT, .35));
+            if (fl > 0) glow(gl * (.55 + .35 * (1 - fl)), .7 * fl, STAR_HOT);   // небольшая быстрая вспышка
             if (q.arms) {                                            // лучи из пикселей, угасают к краям
               const len = gl * .9 * scale * (.8 + .2 * Math.sin(t * q.f * 2.4 + q.p)), step = cs;
               const rc = Math.round(rCore * scale * D);
